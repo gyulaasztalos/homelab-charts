@@ -1,0 +1,45 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "automergeSchedule": [
+    "after 5am every weekday",
+    "before 4pm every weekday",
+    "every weekend"
+  ],
+  "timezone": "Europe/Budapest",
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
+      "automerge": true
+    },
+    {
+      "description": "Major updates open a PR (email notification), never auto-merged",
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ],
+  "helm-values": {
+    "managerFilePatterns": ["/values\\.yaml$/"]
+  },
+  "helmv3": {
+    "managerFilePatterns": ["/Chart\\.yaml$/"]
+  },
+  "kubernetes": {
+    "managerFilePatterns": ["/charts/.+/templates/.+\\.ya?ml$/"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update container image tags in values.yaml annotated with a renovate comment",
+      "managerFilePatterns": ["/values\\.yaml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

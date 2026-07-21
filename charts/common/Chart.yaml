@@ -1,0 +1,10 @@
+apiVersion: v2
+name: common
+description: >-
+  HomeLab library chart. Named templates for the standard resource set
+  (deployment/statefulset/daemonset, service, Traefik IngressRoute, Prometheus
+  ServiceMonitor, PVC, ExternalSecret, ConfigMap) encoding homelab conventions.
+type: library
+version: 0.1.0
+maintainers:
+  - name: gyulaasztalos

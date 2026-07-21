@@ -1,0 +1,26 @@
+# Helm
+charts/**/charts/          # vendored subchart tars from `helm dependency build`
+charts/**/Chart.lock       # regenerated; keep out to avoid churn (repo uses pinned versions in Chart.yaml)
+*.tgz
+
+# Rendered / packaged output
+/dist/
+/output/
+rendered.yaml
+
+# Internal planning doc — not for the public repo
+PLAN.md
+
+# Editor / OS
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# Secrets — belt-and-braces; this repo must never hold secret material
+*.key
+*.pem
+secret*.yaml
+*-secret.yaml
+!**/templates/**            # allow ExternalSecret *templates* (they contain no secret values)

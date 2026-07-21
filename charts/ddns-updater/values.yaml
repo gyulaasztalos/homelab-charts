@@ -1,0 +1,262 @@
+# =============================================================================
+# ddns-updater — values
+# Rendered through the `common` library chart (see charts/common).
+# Every configurable value the library chart understands is listed here with its
+# effective default, so this file is the complete, self-documenting contract.
+# =============================================================================
+
+# App identity. `name` drives all resource names, labels and the namespace
+# (namespace defaults to name). Leave as-is to match the existing deployment.
+name: ddns-updater
+namespace: ddns-updater
+
+# -----------------------------------------------------------------------------
+# Container image. `image.tag` is the SINGLE source of truth for the app version
+# (there is deliberately no Chart.yaml appVersion). Renovate bumps the tag below.
+# -----------------------------------------------------------------------------
+image:
+  repository: qmcgaw/ddns-updater
+  # renovate: datasource=docker depName=qmcgaw/ddns-updater
+  tag: v2.10.0
+  pullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# Controller. type = deployment | statefulset | daemonset.
+# ddns-updater owns a writable RWO PVC (its data dir) and cannot run >1 replica,
+# so per the homelab rule it is a StatefulSet using a volumeClaimTemplate.
+# -----------------------------------------------------------------------------
+controller:
+  type: statefulset
+  replicas: 1
+  revisionHistoryLimit: 2
+  # StatefulSet rolling update (one pod at a time; no RWO multi-attach).
+  updateStrategy:
+    type: RollingUpdate
+
+# Per-replica RWO volume. Replaces the old static PVC `ddns-updater-data`.
+# The generated PVC will be `data-ddns-updater-0`. Data is regenerable state.
+volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      storageClassName: longhorn
+      resources:
+        requests:
+          storage: 1Mi
+
+# -----------------------------------------------------------------------------
+# Pod security. Homelab standard: fully non-root, RuntimeDefault seccomp.
+# -----------------------------------------------------------------------------
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+
+# Container-level security context.
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  privileged: false
+
+# Schedule at most one replica per node (default true in the library chart).
+podAntiAffinity: true
+
+# -----------------------------------------------------------------------------
+# Ports exposed by the container.
+# -----------------------------------------------------------------------------
+ports:
+  - name: webui
+    containerPort: 8000
+    protocol: TCP
+  - name: health
+    containerPort: 9999
+    protocol: TCP
+
+# -----------------------------------------------------------------------------
+# Configuration. Non-secret env comes from a generated ConfigMap (envFrom);
+# secrets are pulled via ExternalSecret and mounted as a file.
+# -----------------------------------------------------------------------------
+envFromConfigMap: ddns-updater-env
+envFromSecrets: []
+env: []
+
+configMaps:
+  - name: ddns-updater-env
+    data:
+      TZ: "Europe/Budapest"
+      PERIOD: "5m"
+      UPDATE_COOLDOWN_PERIOD: "5m"
+      PUBLICIP_FETCHERS: "all"
+      PUBLICIP_HTTP_PROVIDERS: "all"
+      PUBLICIPV4_HTTP_PROVIDERS: "all"
+      PUBLICIPV6_HTTP_PROVIDERS: "all"
+      PUBLICIP_DNS_PROVIDERS: "all"
+      PUBLICIP_DNS_TIMEOUT: "3s"
+      HTTP_TIMEOUT: "10s"
+      LISTENING_PORT: "8000"
+      ROOT_URL: "/"
+      BACKUP_PERIOD: "0" # 0 to disable
+      BACKUP_DIRECTORY: "/updater/data"
+      CONFIG_FILEPATH: "/updater/config/config.json"
+      LOG_LEVEL: "info"
+      LOG_CALLER: "hidden"
+      HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
+      SHOUTRRR_ADDRESSES: "generic://apprise.apprise.svc.cluster.local:8000/notify/apprise?template=json&messagekey=body&disabletls=yes&tag=ddns&type=info&title=DDNS"
+
+# -----------------------------------------------------------------------------
+# Secrets — ExternalSecret referencing the onepassword-connect ClusterSecretStore.
+# Renders the ddns-updater config.json (contains the Cloudflare token/zone).
+# NO secret material is stored here — only references.
+# NOTE: the {{ .cloudflare_zone_id }} placeholders below are the ExternalSecret's
+# OWN templating (engineVersion v2), resolved by External Secrets Operator at
+# runtime. They are written RAW here on purpose: values.yaml is not processed by
+# Helm, so these braces pass through untouched into the rendered manifest.
+# -----------------------------------------------------------------------------
+externalSecrets:
+  - name: ddns-updater-secret
+    refreshInterval: 1h
+    target:
+      template:
+        engineVersion: v2
+        type: Opaque
+        data:
+          config.json: |
+            {
+              "settings": [
+                {
+                  "provider": "cloudflare",
+                  "zone_identifier": "{{ .cloudflare_zone_id }}",
+                  "domain": "@.asztalos.net",
+                  "ttl": 600,
+                  "token": "{{ .cloudflare_token }}",
+                  "ip_version": "ipv4"
+                },
+                {
+                  "provider": "cloudflare",
+                  "zone_identifier": "{{ .cloudflare_zone_id }}",
+                  "domain": "@.asztalos.net",
+                  "ttl": 600,
+                  "token": "{{ .cloudflare_token }}",
+                  "ip_version": "ipv6",
+                  "ipv6_suffix": ""
+                }
+              ]
+            }
+    data:
+      - secretKey: cloudflare_zone_id
+        remoteRef:
+          key: cloudflare-token-secret
+          property: cloudflare-zone-id
+      - secretKey: cloudflare_token
+        remoteRef:
+          key: cloudflare-token-secret
+          property: cloudflare-token
+
+# -----------------------------------------------------------------------------
+# Resources.
+# -----------------------------------------------------------------------------
+resources:
+  requests:
+    memory: "32Mi"
+    cpu: "50m"
+  limits:
+    memory: "64Mi"
+    cpu: "100m"
+
+# -----------------------------------------------------------------------------
+# Probes. ddns-updater exposes a health server on :9999.
+# -----------------------------------------------------------------------------
+readinessProbe:
+  httpGet:
+    path: /
+    port: 9999
+    scheme: HTTP
+  initialDelaySeconds: 60
+  periodSeconds: 60
+  timeoutSeconds: 10
+  successThreshold: 1
+  failureThreshold: 5
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 9999
+    scheme: HTTP
+  initialDelaySeconds: 60
+  periodSeconds: 60
+  timeoutSeconds: 10
+  successThreshold: 1
+  failureThreshold: 5
+
+# -----------------------------------------------------------------------------
+# Volumes / mounts. The `data` volume is provided by the volumeClaimTemplate
+# above and mounted explicitly. The secret is mounted as config.json.
+# -----------------------------------------------------------------------------
+volumeMounts:
+  - name: ddns-updater-secret
+    mountPath: /updater/config/config.json
+    subPath: config.json
+  - name: data
+    mountPath: /updater/data
+
+volumes:
+  - name: ddns-updater-secret
+    secret:
+      secretName: ddns-updater-secret
+
+# -----------------------------------------------------------------------------
+# Init containers (none for this app).
+# -----------------------------------------------------------------------------
+initContainers: []
+
+# -----------------------------------------------------------------------------
+# Service (ClusterIP). Selects on the `app` label.
+# -----------------------------------------------------------------------------
+service:
+  enabled: true
+  type: ClusterIP
+  ports:
+    - name: webui
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+
+# -----------------------------------------------------------------------------
+# Traefik IngressRoute. Browser path guarded by authentik + default-headers.
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  ingressClassName: traefik-external
+  entryPoint: websecure
+  host: ddns-updater.local.asztalos.net
+  port: 8000
+  priority: 10
+  middlewares:
+    - name: authentik
+      namespace: traefik
+    - name: default-headers
+      namespace: traefik
+  tlsSecretName: local-asztalos-net-tls
+
+# -----------------------------------------------------------------------------
+# ServiceMonitor.
+# NOTE: disabled to match the CURRENT (pre-helmification) state. The absence of a
+# ServiceMonitor here is considered a BUG in the existing setup — ddns-updater
+# should probably be scraped. Tracked in PLAN.md backlog; revisit and enable
+# before final cutover once the metrics endpoint is confirmed.
+# -----------------------------------------------------------------------------
+serviceMonitor:
+  enabled: false
+  labels: {}
+  endpoints: []
+
+# Static PVCs / PVs — none (RWO data handled by volumeClaimTemplates above).
+persistentVolumeClaims: []
+persistentVolumes: []
+
+# Extra labels merged into the standard label block.
+extraLabels: {}

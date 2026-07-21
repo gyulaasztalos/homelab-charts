@@ -1,0 +1,40 @@
+name: Helm Lint & Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-template:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v5
+
+      - name: Install kubeconform
+        run: |
+          KC_VERSION="$(curl -fsSL https://api.github.com/repos/yannh/kubeconform/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+')"
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/${KC_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz kubeconform
+          sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Lint, template and validate every wrapper chart
+        run: |
+          set -euo pipefail
+          # CRD schemas for Traefik IngressRoute, Prometheus ServiceMonitor, ExternalSecret
+          CRD_SCHEMAS='-schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+          for dir in charts/*/; do
+            name="$(basename "$dir")"
+            [ "$name" = "common" ] && continue          # library chart renders nothing
+            echo "::group::$name"
+            helm dependency build "$dir"
+            helm lint "$dir"
+            helm template "$name" "$dir" \
+              | kubeconform -strict -summary -ignore-missing-schemas $CRD_SCHEMAS
+            echo "::endgroup::"
+          done
