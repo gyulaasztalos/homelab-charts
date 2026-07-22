@@ -41,9 +41,7 @@ spec:
     matchLabels:
 {{ include "common.selectorLabels" . | indent 6 }}
   template:
-    metadata:
-      labels:
-{{ include "common.labels" . | indent 8 }}
+{{ include "common.podTemplateMeta" . | indent 4 }}
     spec:
 {{ include "common.podSpec" . | indent 6 }}
 {{- end -}}
@@ -73,9 +71,7 @@ spec:
     matchLabels:
 {{ include "common.selectorLabels" . | indent 6 }}
   template:
-    metadata:
-      labels:
-{{ include "common.labels" . | indent 8 }}
+{{ include "common.podTemplateMeta" . | indent 4 }}
     spec:
 {{ include "common.podSpec" . | indent 6 }}
   {{- with .Values.volumeClaimTemplates }}
@@ -107,9 +103,7 @@ spec:
     matchLabels:
 {{ include "common.selectorLabels" . | indent 6 }}
   template:
-    metadata:
-      labels:
-{{ include "common.labels" . | indent 8 }}
+{{ include "common.podTemplateMeta" . | indent 4 }}
     spec:
 {{ include "common.podSpec" . | indent 6 }}
 {{- end -}}

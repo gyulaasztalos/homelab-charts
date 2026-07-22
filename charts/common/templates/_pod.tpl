@@ -1,4 +1,32 @@
 {{/*
+common.configChecksum — sha256 of the rendered ConfigMaps, used as a pod-template
+annotation so pods auto-roll when their config changes (the Helm-idiomatic
+equivalent of kustomize's configMapGenerator hash suffix). ExternalSecrets are
+intentionally excluded: their manifest is only a reference, and the real secret
+value (rotated in 1Password) doesn't change the manifest — matching the old
+kustomize behavior, which only hashed generated ConfigMaps/Secrets.
+*/}}
+{{- define "common.configChecksum" -}}
+{{- include "common.configmaps" . | sha256sum -}}
+{{- end -}}
+
+{{/*
+common.podTemplateMeta — the shared `spec.template.metadata` block (labels +
+checksum/config annotation + optional podAnnotations). Used by all three
+controllers so the metadata stays identical.
+*/}}
+{{- define "common.podTemplateMeta" -}}
+metadata:
+  labels:
+{{ include "common.labels" . | indent 4 }}
+  annotations:
+    checksum/config: {{ include "common.configChecksum" . | quote }}
+{{- with .Values.podAnnotations }}
+{{ toYaml . | indent 4 }}
+{{- end }}
+{{- end -}}
+
+{{/*
 common.podSpec — the shared pod template body (spec.template.spec content).
 Included by the deployment/statefulset/daemonset controllers. Encodes the homelab
 defaults: standard securityContext, pod anti-affinity, RuntimeDefault seccomp.
