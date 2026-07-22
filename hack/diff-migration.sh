@@ -22,6 +22,14 @@ argocd="${2:-${ARGOCD_REPO:-$repo_root/../ArgoCD}}"
 install_dir="$argocd/apps/$app/install"
 chart_dir="$repo_root/charts/$app"
 
+# The chart's own values.yaml is now GENERIC (example.com + defaults); the real
+# domain-specific config lives in the ArgoCD repo. Render the chart WITH that
+# tailored values file so the comparison against install/ is apples-to-apples.
+# (Falls back to chart defaults if the tailored file doesn't exist yet.)
+values_file="$argocd/apps/$app/values.yaml"
+helm_values_args=()
+[ -f "$values_file" ] && helm_values_args=(-f "$values_file")
+
 [ -d "$install_dir" ] || { echo "ERROR: original manifests not found: $install_dir" >&2; exit 2; }
 [ -d "$chart_dir" ]   || { echo "ERROR: chart not found: $chart_dir" >&2; exit 2; }
 command -v yq >/dev/null || { echo "ERROR: yq v4 (mikefarah) is required" >&2; exit 3; }
@@ -48,9 +56,9 @@ normalize_split() {
 echo ">> rendering ORIGINAL kustomize: $install_dir"
 kubectl kustomize "$install_dir" | normalize_split "$work/orig"
 
-echo ">> rendering HELM chart: $chart_dir"
+echo ">> rendering HELM chart: $chart_dir ${helm_values_args:+(with $values_file)}"
 helm dependency build "$chart_dir" >/dev/null 2>&1 || true
-helm template "$app" "$chart_dir" | normalize_split "$work/helm"
+helm template "$app" "$chart_dir" "${helm_values_args[@]}" | normalize_split "$work/helm"
 
 echo
 echo "==================== RESOURCE INVENTORY ===================="
@@ -94,7 +102,7 @@ echo "==================== POD SPEC DIFF (controllers) ===================="
 orig_pod="$work/orig_pod.yaml"; helm_pod="$work/helm_pod.yaml"
 kubectl kustomize "$install_dir" \
   | yq ea 'select(.kind=="Deployment" or .kind=="StatefulSet" or .kind=="DaemonSet") | .spec.template.spec | sort_keys(..)' - > "$orig_pod" || true
-helm template "$app" "$chart_dir" \
+helm template "$app" "$chart_dir" "${helm_values_args[@]}" \
   | yq ea 'select(.kind=="Deployment" or .kind=="StatefulSet" or .kind=="DaemonSet") | .spec.template.spec | sort_keys(..)' - > "$helm_pod" || true
 if diff -u --label orig-pod "$orig_pod" --label helm-pod "$helm_pod" >/dev/null; then
   echo "Pod specs IDENTICAL."

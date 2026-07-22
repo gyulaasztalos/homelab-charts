@@ -1,12 +1,18 @@
 # =============================================================================
-# ddns-updater — values
+# ddns-updater — EXAMPLE values (generic / shareable)
 # Rendered through the `common` library chart (see charts/common).
-# Every configurable value the library chart understands is listed here with its
-# effective default, so this file is the complete, self-documenting contract.
+#
+# This file is a self-documenting EXAMPLE: every value the library chart
+# understands is listed with its effective default and a comment. The values
+# here are GENERIC placeholders (example.com, sample secret refs) so anyone can
+# fork this chart. The real, domain-specific deployment config lives in the
+# GitOps repo (apps/ddns-updater/values.yaml) and overrides this file at deploy
+# time via Helm `valueFiles`. The chart still renders validly on these defaults
+# alone (CI renders it), it just points at example.com.
 # =============================================================================
 
 # App identity. `name` drives all resource names, labels and the namespace
-# (namespace defaults to name). Leave as-is to match the existing deployment.
+# (namespace defaults to name).
 name: ddns-updater
 namespace: ddns-updater
 
@@ -105,12 +111,15 @@ configMaps:
       LOG_LEVEL: "info"
       LOG_CALLER: "hidden"
       HEALTH_SERVER_ADDRESS: "0.0.0.0:9999"
-      SHOUTRRR_ADDRESSES: "generic://apprise.apprise.svc.cluster.local:8000/notify/apprise?template=json&messagekey=body&disabletls=yes&tag=ddns&type=info&title=DDNS"
+      # EXAMPLE notification target. Override with your own shoutrrr URL in the
+      # GitOps values.yaml (e.g. an apprise/gotify/telegram endpoint).
+      SHOUTRRR_ADDRESSES: "generic://apprise.example.svc.cluster.local:8000/notify/apprise?template=json&messagekey=body&disabletls=yes&tag=ddns&type=info&title=DDNS"
 
 # -----------------------------------------------------------------------------
 # Secrets — ExternalSecret referencing the onepassword-connect ClusterSecretStore.
-# Renders the ddns-updater config.json (contains the Cloudflare token/zone).
-# NO secret material is stored here — only references.
+# Renders the ddns-updater config.json (contains the DNS provider token/zone).
+# NO secret material is stored here — only references. Replace the domains and
+# the 1Password item/property names to match your own vault in the GitOps values.
 # NOTE: the {{ .cloudflare_zone_id }} placeholders below are the ExternalSecret's
 # OWN templating (engineVersion v2), resolved by External Secrets Operator at
 # runtime. They are written RAW here on purpose: values.yaml is not processed by
@@ -130,7 +139,7 @@ externalSecrets:
                 {
                   "provider": "cloudflare",
                   "zone_identifier": "{{ .cloudflare_zone_id }}",
-                  "domain": "@.asztalos.net",
+                  "domain": "@.example.com",
                   "ttl": 600,
                   "token": "{{ .cloudflare_token }}",
                   "ip_version": "ipv4"
@@ -138,7 +147,7 @@ externalSecrets:
                 {
                   "provider": "cloudflare",
                   "zone_identifier": "{{ .cloudflare_zone_id }}",
-                  "domain": "@.asztalos.net",
+                  "domain": "@.example.com",
                   "ttl": 600,
                   "token": "{{ .cloudflare_token }}",
                   "ip_version": "ipv6",
@@ -227,12 +236,13 @@ service:
 
 # -----------------------------------------------------------------------------
 # Traefik IngressRoute. Browser path guarded by authentik + default-headers.
+# Override `ingress.host` with your real hostname in the GitOps values.
 # -----------------------------------------------------------------------------
 ingress:
   enabled: true
   ingressClassName: traefik-external
   entryPoint: websecure
-  host: ddns-updater.local.asztalos.net
+  host: ddns-updater.example.com
   port: 8000
   priority: 10
   middlewares:
@@ -240,7 +250,7 @@ ingress:
       namespace: traefik
     - name: default-headers
       namespace: traefik
-  tlsSecretName: local-asztalos-net-tls
+  tlsSecretName: example-com-tls
 
 # -----------------------------------------------------------------------------
 # ServiceMonitor.
