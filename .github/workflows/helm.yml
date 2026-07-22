@@ -26,15 +26,24 @@ jobs:
       - name: Lint, template and validate every wrapper chart
         run: |
           set -euo pipefail
-          # CRD schemas for Traefik IngressRoute, Prometheus ServiceMonitor, ExternalSecret
-          CRD_SCHEMAS='-schema-location default -schema-location https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+          # kubeconform args as an array (avoids word-splitting fragility).
+          # - default schemas + the datree CRD catalog for Traefik / ServiceMonitor / ExternalSecret
+          # - IngressRoute is skipped: the public CRD catalog schema for traefik.io
+          #   IngressRoute is stale and rejects the VALID spec.ingressClassName field
+          #   (present in current Traefik CRDs and in the existing cluster manifests).
+          #   Documented CI exception — see PLAN.md "CI as a living suite".
+          KC_ARGS=(
+            -strict -summary -ignore-missing-schemas
+            -schema-location default
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
+            -skip IngressRoute
+          )
           for dir in charts/*/; do
             name="$(basename "$dir")"
             [ "$name" = "common" ] && continue          # library chart renders nothing
             echo "::group::$name"
             helm dependency build "$dir"
             helm lint "$dir"
-            helm template "$name" "$dir" \
-              | kubeconform -strict -summary -ignore-missing-schemas $CRD_SCHEMAS
+            helm template "$name" "$dir" | kubeconform "${KC_ARGS[@]}"
             echo "::endgroup::"
           done
