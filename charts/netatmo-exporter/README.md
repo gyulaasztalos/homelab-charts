@@ -1,8 +1,8 @@
 # netatmo-exporter
 
 Netatmo weather-station Prometheus exporter
-([xperimental/netatmo-exporter](https://github.com/xperimental/netatmo-exporter))
-for the homelab. Rendered through the [`common`](../common) library chart.
+([xperimental/netatmo-exporter](https://github.com/xperimental/netatmo-exporter)).
+Rendered through the [`common`](../common) library chart.
 
 ## Controller
 
@@ -11,19 +11,31 @@ OAuth token, so per the homelab rule (*owns an RWO volume ⇒ StatefulSet*) it u
 `volumeClaimTemplate`. The cached token is regenerable — an init container re-seeds
 it from the ExternalSecret on first start — so migration is delete-and-recreate.
 
+## Generic chart vs. deployment values
+
+This chart's [`values.yaml`](values.yaml) holds **generic, shareable example
+config** (`example.com` host, sample 1Password refs) plus every default, so it
+renders on its own and anyone can fork it. The **real deployment config** lives in
+the GitOps repo (`apps/netatmo-exporter/values.yaml`) and is layered over this
+chart by the ArgoCD Application via `helm.valueFiles`. Override at minimum:
+`ingress.host`, `ingress.tlsSecretName`, `NETATMO_EXPORTER_EXTERNAL_URL` and the
+`externalSecrets` refs.
+
 ## Notes
 
 - **ServiceMonitor is enabled** — this exporter is scraped (`/metrics` on :9210).
 - **Init container** `add-netatmo-token` copies the initial token file from the
   secret into the config volume (idempotent; skips if already present).
 - **Grafana dashboard is NOT in this chart.** The original `install/` inlined a
-  3.8k-line dashboard ConfigMap; per the project convention it relocates to
-  `apps/netatmo-exporter/post-install/` in the ArgoCD repo and is synced as a
-  separate Application source. See `PLAN.md`.
+  ~3.8k-line dashboard ConfigMap; it is relocated as-is to
+  `apps/netatmo-exporter/post-install/` in the ArgoCD repo and synced as a
+  separate Application source. The Grafana sidecar (searchNamespace: ALL)
+  discovers it regardless of namespace.
 
 ## Values
 
-All values are set in [`values.yaml`](values.yaml) with their effective defaults.
+All values are set in [`values.yaml`](values.yaml) with their effective defaults
+(generic example values).
 
 | Key | Default | Description |
 |-----|---------|-------------|
@@ -49,7 +61,7 @@ All values are set in [`values.yaml`](values.yaml) with their effective defaults
 | `volumeMounts` | `config` → /config | Container mounts. |
 | `volumes` | `netatmo-exporter-secret` (secret) | Non-PVC volumes. |
 | `service.*` | ClusterIP, http 9210 → targetPort http | Service. |
-| `ingress.*` | host `netatmo-exporter.local.asztalos.net`, authentik + default-headers | Traefik IngressRoute. |
+| `ingress.*` | host `netatmo-exporter.example.com`, authentik + default-headers | Traefik IngressRoute (override host in GitOps values). |
 | `serviceMonitor.enabled` | `true` | Scraped. |
 | `serviceMonitor.labels` | `release: prometheus-operator` | Preserved from original (harmless). |
 | `serviceMonitor.endpoints` | `/metrics` @30s, targetPort http | Scrape config. |
@@ -61,6 +73,9 @@ All values are set in [`values.yaml`](values.yaml) with their effective defaults
 ```bash
 helm dependency build charts/netatmo-exporter
 helm lint charts/netatmo-exporter
+# renders on generic defaults alone:
 helm template netatmo-exporter charts/netatmo-exporter | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
-bash hack/diff-migration.sh netatmo-exporter   # while apps/netatmo-exporter/install exists
+# migration equivalence against install/ — renders with the TAILORED GitOps values
+# (auto-picked up from ../ArgoCD/apps/netatmo-exporter/values.yaml):
+bash hack/diff-migration.sh netatmo-exporter
 ```

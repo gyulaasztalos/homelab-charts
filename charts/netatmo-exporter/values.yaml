@@ -1,8 +1,13 @@
 # =============================================================================
-# netatmo-exporter — values
+# netatmo-exporter — EXAMPLE values (generic / shareable)
 # Rendered through the `common` library chart (see charts/common).
-# Every configurable value the library chart understands is listed here with its
-# effective default, so this file is the complete, self-documenting contract.
+#
+# This file is a self-documenting EXAMPLE: every value the library chart
+# understands is listed with its effective default and a comment, using GENERIC
+# placeholders (example.com, sample 1Password refs) so anyone can fork the chart.
+# The real domain-specific deployment config lives in the GitOps repo
+# (apps/netatmo-exporter/values.yaml) and overrides this file at deploy time via
+# Helm `valueFiles`. The chart still renders validly on these defaults alone.
 # =============================================================================
 
 name: netatmo-exporter
@@ -87,7 +92,8 @@ configMaps:
   - name: netatmo-exporter-config
     data:
       NETATMO_EXPORTER_TOKEN_FILE: /config/netatmo-token.json
-      NETATMO_EXPORTER_EXTERNAL_URL: https://netatmo-exporter.local.asztalos.net
+      # External URL used in the OAuth redirect. Override with your real host.
+      NETATMO_EXPORTER_EXTERNAL_URL: https://netatmo-exporter.example.com
 
 # -----------------------------------------------------------------------------
 # Secrets — ExternalSecret (onepassword-connect). Provides the OAuth client
@@ -227,7 +233,7 @@ ingress:
   enabled: true
   ingressClassName: traefik-external
   entryPoint: websecure
-  host: netatmo-exporter.local.asztalos.net
+  host: netatmo-exporter.example.com
   port: 9210
   priority: 10
   middlewares:
@@ -235,7 +241,7 @@ ingress:
       namespace: traefik
     - name: default-headers
       namespace: traefik
-  tlsSecretName: local-asztalos-net-tls
+  tlsSecretName: example-com-tls
 
 # -----------------------------------------------------------------------------
 # ServiceMonitor — this exporter IS scraped. `release: prometheus-operator` label
