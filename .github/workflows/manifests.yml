@@ -12,10 +12,10 @@ jobs:
   render:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Helm
-        uses: azure/setup-helm@v5
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
 
       - name: Render charts to ./rendered
         run: |
@@ -43,7 +43,7 @@ jobs:
           name: rendered-manifests
           path: rendered/
       - name: Run KubeLinter
-        uses: stackrox/kube-linter-action@v1
+        uses: stackrox/kube-linter-action@87802a2f4e01abebb3ee3c67a3002fea71f6eae5 # v1
         with:
           directory: ./rendered
 
@@ -56,7 +56,7 @@ jobs:
           name: rendered-manifests
           path: rendered/
       - name: Install Pluto
-        uses: FairwindsOps/pluto/github-action@master
+        uses: FairwindsOps/pluto/github-action@5f85d3f5474aede69f17f71d3e0a36674b8b8b62 # master
       - name: Scan rendered manifests for deprecated APIs
         run: |
           printf "\nScanning rendered manifests for deprecated APIs...\n"
