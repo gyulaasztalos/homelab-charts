@@ -1,0 +1,15 @@
+apiVersion: v2
+name: homepage
+description: gethomepage dashboard — the homelab's service landing page, with Kubernetes/Longhorn/Traefik widgets.
+icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/homepage.png
+type: application
+version: 0.1.0
+# NOTE: no appVersion here on purpose. The deployed app version is the container
+# image tag in values.yaml (image.tag), which is the single source of truth and is
+# kept current by Renovate. Duplicating it as appVersion would only risk drift.
+# Requires common >= 0.2.0 for serviceAccount.tokenSecret (the long-lived
+# ServiceAccount token the `kubernetes` widget needs in cluster mode).
+dependencies:
+  - name: common
+    version: ">= 0.2.0"
+    repository: "file://../common"

@@ -1,6 +1,7 @@
 apiVersion: v2
 name: netatmo-exporter
 description: Netatmo weather-station Prometheus exporter (xperimental/netatmo-exporter) for the homelab.
+icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/netatmo.svg
 type: application
 version: 0.1.0
 # No appVersion on purpose — the deployed version is image.tag in values.yaml

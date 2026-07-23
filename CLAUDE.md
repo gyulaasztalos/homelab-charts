@@ -112,7 +112,28 @@ helm template charts/<app> > /tmp/r.yaml && kube-linter lint /tmp/r.yaml && plut
 `-skip IngressRoute` is a documented exception: the public CRD catalog schema is
 stale and rejects the valid `spec.ingressClassName`.
 
-### Migration gate (local only, once per app)
+### Regression gate — the one that matters for `charts/common`
+
+An app that has been cut over **and verified in production** is proven; its chart
+render is the baseline from then on, and the old `install/` manifests are dead.
+So every later change is checked as *previous proven render → new render*:
+
+```bash
+hack/diff-charts.sh              # vs HEAD
+hack/diff-charts.sh <ref> [chart...]
+```
+
+Renders every chart at `<ref>` and from the working tree, diffing both the
+**generic** render (chart's own values) and the **deployed** render (layered with
+`<ArgoCD>/apps/<app>/values.yaml`). Run it after **any** `charts/common` edit: a
+wrapper change can only break its own app, but a library change re-renders every
+proven app at once. Confirm every chart listed as `CHANGED` is one you meant to
+touch — anything else is a leak.
+
+### Migration gate (local only, ONCE per app)
+
+Only while both representations exist — before the app is cut over. Superseded by
+`diff-charts.sh` the moment the migration is verified in prod.
 
 ```bash
 hack/diff-migration.sh <app> [path-to-ArgoCD-repo]
@@ -158,7 +179,15 @@ out the whole repo for the chart source.
 - No `appVersion` in `Chart.yaml` — `image.tag` in values.yaml is the single
   source of truth, Renovate-managed via a `# renovate: datasource=docker` comment
   directly above the `tag:` line.
-- `Chart.lock` and vendored `charts/*/charts/` are gitignored; `helm dependency
-  build` regenerates them.
+- `Chart.lock` and vendored `charts/*/charts/` are **untracked build artifacts** —
+  `helm dependency build` regenerates them, and it works fine with no lock
+  present (verified: identical render). Keeping them out means a stale pin can
+  never be committed. A tracked lock pinning `common 0.1.0` would fail every
+  chart's render with *"can't get a valid version for dependency common"* the
+  moment `common` is bumped — including charts you did not touch, since ArgoCD
+  runs `dependency build` too.
+- **`.gitignore` cannot take trailing comments** — git treats the whole line as
+  the pattern. Three rules were silently dead because of this. Keep every comment
+  on its own line.
 - One app cut over and confirmed healthy in-cluster before starting the next.
 - Chart README is updated as the **final** step of each migration.

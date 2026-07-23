@@ -1,6 +1,7 @@
 apiVersion: v2
 name: vcgen-exporter
 description: Raspberry Pi vcgencmd Prometheus exporter (temperature/clock/voltage) — runs as a privileged DaemonSet on every node.
+icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/raspberry-pi.svg
 type: application
 version: 0.1.0
 # No appVersion on purpose — the deployed version is image.tag in values.yaml

@@ -1,0 +1,368 @@
+# =============================================================================
+# homepage — EXAMPLE values (generic / shareable)
+# Rendered through the `common` library chart (see charts/common).
+#
+# This file is a self-documenting EXAMPLE: every value the library chart
+# understands is listed with its effective default and a comment. The values
+# here are GENERIC placeholders (example.com, sample secret refs) so anyone can
+# fork this chart. The real, domain-specific deployment config lives in the
+# GitOps repo (apps/homepage/values.yaml) and overrides this file at deploy time
+# via Helm `valueFiles`. The chart still renders validly on these defaults alone
+# (CI renders it), it just points at example.com.
+#
+# gethomepage dashboard. Stateless (config comes from ConfigMaps/Secrets, logs
+# to an emptyDir), no node-local hardware ⇒ Deployment.
+#
+# SPLIT ACROSS SOURCES — see README.md "Scope boundary":
+#   - this chart owns: workload, SA + SA token Secret, env + config ConfigMaps,
+#     ExternalSecret, Service, IngressRoute
+#   - apps/homepage/pre-install/ owns: ClusterRole + ClusterRoleBinding, and the
+#     `homepage-images` ConfigMap (binary jpg/png — not carryable in values.yaml)
+# =============================================================================
+
+# App identity. `name` drives all resource names, labels and the namespace
+# (namespace defaults to name).
+name: homepage
+namespace: homepage
+
+# -----------------------------------------------------------------------------
+# Container image. `image.tag` is the SINGLE source of truth for the app version
+# (there is deliberately no Chart.yaml appVersion). Renovate bumps the tag below.
+# -----------------------------------------------------------------------------
+image:
+  repository: ghcr.io/gethomepage/homepage
+  # renovate: datasource=docker depName=ghcr.io/gethomepage/homepage
+  tag: v1.13.2
+  pullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# Controller. type = deployment | statefulset | daemonset.
+# All state is in ConfigMaps/Secrets and two emptyDirs, so it is a Deployment.
+# -----------------------------------------------------------------------------
+controller:
+  type: deployment
+  replicas: 1
+  progressDeadlineSeconds: 600
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+
+# -----------------------------------------------------------------------------
+# ServiceAccount. homepage's `kubernetes` widget runs in `mode: cluster` and
+# talks to the API server, so it needs its own SA — and a LONG-LIVED token.
+# Since Kubernetes 1.24 a SA no longer gets an auto-generated token Secret, so
+# `tokenSecret.create` emits an (empty) kubernetes.io/service-account-token
+# Secret that kube-controller-manager populates in-cluster. No secret material
+# is stored in this repo. Requires common >= 0.2.0.
+#
+# The ClusterRole/ClusterRoleBinding that grant this SA its read access are NOT
+# in this chart — they live in apps/homepage/pre-install/ (see README).
+# -----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: homepage
+  secrets:
+    - name: homepage
+  tokenSecret:
+    create: true
+    name: homepage
+serviceAccountName: homepage
+
+# -----------------------------------------------------------------------------
+# Pod security. Homelab standard: fully non-root, RuntimeDefault seccomp.
+# -----------------------------------------------------------------------------
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+
+# Container-level security context.
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  privileged: false
+
+# Schedule at most one replica per node (default true in the library chart).
+podAntiAffinity: true
+
+# -----------------------------------------------------------------------------
+# Ports exposed by the container.
+# -----------------------------------------------------------------------------
+ports:
+  - name: http
+    containerPort: 3000
+    protocol: TCP
+
+# -----------------------------------------------------------------------------
+# Configuration.
+#   homepage-env    — process env (envFrom), incl. the allowed-hosts guard
+#   homepage-config — the dashboard config files, mounted one-by-one via subPath
+# Both are chart-owned, so `checksum/config` covers them: editing any of these
+# changes the annotation and rolls the pod. (The binary `homepage-images`
+# ConfigMap lives in pre-install and does NOT roll the pod — see README.)
+# -----------------------------------------------------------------------------
+envFromConfigMap: homepage-env
+envFromSecrets: []
+env: []
+
+configMaps:
+  - name: homepage-env
+    data:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "Europe/Budapest"
+      # homepage refuses requests whose Host header is not listed here.
+      HOMEPAGE_ALLOWED_HOSTS: "homepage.example.com,localhost:3000"
+      HOMEPAGE_PROXY_DISABLE_IPV6: "true"
+
+  - name: homepage-config
+    files:
+      bookmarks.yaml: |
+        ---
+        - Misc 1:
+          - Printer:
+            - icon: printer
+              href: http://printer.example.com
+              description: ""
+
+      # mode: cluster makes the kubernetes widget use the SA token above.
+      kubernetes.yaml: |
+        ---
+        mode: cluster
+        # disable service discovery
+        ingress: false # default, enable ingress
+        traefik: false # enable traefik ingressRoute
+        gateway: false # enable gateway-api
+
+      settings.yaml: |
+        ---
+        # For configuration options and examples, please see:
+        # https://gethomepage.dev/latest/configs/settings
+        title: Homelab Homepage
+        startUrl: https://homepage.example.com
+        favicon: favicon-32x32.png
+        color: slate
+        theme: dark # or light
+        headerStyle: clean
+        target: _blank
+        cardBlur: xl
+        layout:
+          Line 0A:
+            header: false
+        quicklaunch:
+          searchDescriptions: true
+          hideInternetSearch: true
+          hideVisitURL: true
+
+      widgets.yaml: |
+        ---
+        - logo:
+            icon: homepage
+
+        - kubernetes:
+            nodes:
+              show: true
+              cpu: true
+              memory: true
+              showLabel: true
+            cluster:
+              show: false
+
+        - search:
+            provider: duckduckgo
+            focus: true
+            target: _blank
+
+        - datetime:
+            text_size: md
+            format:
+                dateStyle: short
+                timeStyle: short
+                hourCycle: h23
+
+# -----------------------------------------------------------------------------
+# Secrets — ExternalSecret referencing the onepassword-connect ClusterSecretStore.
+# Renders homepage's services.yaml, which embeds widget API tokens/passwords, so
+# the whole file is templated by External Secrets Operator and mounted via subPath.
+# NO secret material is stored here — only references. Replace the 1Password
+# item/property names to match your own vault in the GitOps values.
+# NOTE: the {{ .some_token }} placeholders are the ExternalSecret's OWN
+# templating (engineVersion v2), resolved by ESO at runtime. They are written RAW
+# on purpose: values.yaml is not processed by Helm, so the braces pass through
+# untouched into the rendered manifest.
+# -----------------------------------------------------------------------------
+externalSecrets:
+  - name: homepage-secret
+    refreshInterval: 1h
+    target:
+      template:
+        engineVersion: v2
+        type: Opaque
+        data:
+          services.yaml: |
+            ---
+            # For configuration options and examples, please see:
+            # https://gethomepage.dev/en/configs/services
+
+            - Line 0A:
+                - Grafana:
+                    icon: grafana
+                    href: https://grafana.example.com
+                    widget:
+                      type: grafana
+                      url: http://grafana.monitoring.svc.cluster.local
+                      username: {{ .grafana_username }}
+                      password: {{ .grafana_password }}
+    data:
+      - secretKey: grafana_username
+        remoteRef:
+          key: grafana-secrets
+          property: admin-user
+      - secretKey: grafana_password
+        remoteRef:
+          key: grafana-secrets
+          property: admin-password
+
+# -----------------------------------------------------------------------------
+# Resources.
+# -----------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 1000m
+    memory: 256Mi
+
+# -----------------------------------------------------------------------------
+# Probes — homepage serves the dashboard on :3000.
+# -----------------------------------------------------------------------------
+readinessProbe:
+  httpGet:
+    path: /
+    port: 3000
+  initialDelaySeconds: 10
+  periodSeconds: 20
+  failureThreshold: 5
+  successThreshold: 1
+  timeoutSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /
+    port: 3000
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  failureThreshold: 5
+  successThreshold: 1
+  timeoutSeconds: 10
+
+# -----------------------------------------------------------------------------
+# Volumes / mounts.
+#   config  — emptyDir; homepage writes into /app/config at startup, and the
+#             rootfs is read-only, so it needs a writable dir. The individual
+#             config FILES are then layered on top via subPath mounts.
+#   logs    — emptyDir for /app/config/logs (same read-only-rootfs reason).
+#
+# NO custom images are mounted here on purpose: a custom background / logo is a
+# domain-specific ASSET, and being binary it cannot live in values.yaml. The real
+# deployment mounts a `homepage-images` ConfigMap that is generated by
+# apps/homepage/pre-install/ — see that source, and the fuller volumeMounts list
+# in apps/homepage/values.yaml. Mounting it from here would leave a fork with a
+# pod stuck on a missing ConfigMap, so the generic chart runs with stock artwork.
+#
+# NOTE: `volumeMounts` and `volumes` are LISTS — a tailored values.yaml replaces
+# them wholesale rather than merging, so it must repeat every entry below.
+# -----------------------------------------------------------------------------
+volumeMounts:
+  - mountPath: /app/config
+    name: config
+  - mountPath: /app/config/bookmarks.yaml
+    name: homepage-config
+    subPath: bookmarks.yaml
+  - mountPath: /app/config/kubernetes.yaml
+    name: homepage-config
+    subPath: kubernetes.yaml
+  - mountPath: /app/config/settings.yaml
+    name: homepage-config
+    subPath: settings.yaml
+  - mountPath: /app/config/widgets.yaml
+    name: homepage-config
+    subPath: widgets.yaml
+  - mountPath: /app/config/services.yaml
+    name: homepage-secret
+    subPath: services.yaml
+  - mountPath: /app/config/logs
+    name: logs
+
+volumes:
+  - name: config
+    emptyDir: {}
+  - name: homepage-config
+    configMap:
+      name: homepage-config
+  - name: homepage-secret
+    secret:
+      secretName: homepage-secret
+  - name: logs
+    emptyDir: {}
+
+# Init containers (none for this app).
+initContainers: []
+
+# -----------------------------------------------------------------------------
+# Service(s) — a list, so a workload can expose more than one. ClusterIP,
+# selects on the `app` label by default.
+# -----------------------------------------------------------------------------
+services:
+  - name: homepage
+    enabled: true
+    type: ClusterIP
+    ports:
+      - name: http
+        protocol: TCP
+        port: 3000
+        targetPort: http
+
+# -----------------------------------------------------------------------------
+# Traefik IngressRoute — one object with a `routes` list (a single IngressRoute
+# can expose several routes). Browser path guarded by authentik + default-headers.
+# Override `host` with your real hostname in the GitOps values — and keep
+# HOMEPAGE_ALLOWED_HOSTS above in sync, or homepage will reject the request.
+# -----------------------------------------------------------------------------
+ingressRoute:
+  enabled: true
+  ingressClassName: traefik-external
+  entryPoint: websecure
+  tlsSecretName: example-com-tls
+  routes:
+    - host: homepage.example.com
+      serviceName: homepage
+      port: 3000
+      priority: 10
+      middlewares:
+        - name: authentik
+          namespace: traefik
+        - name: default-headers
+          namespace: traefik
+
+# -----------------------------------------------------------------------------
+# ServiceMonitor — homepage exposes no Prometheus metrics endpoint.
+# -----------------------------------------------------------------------------
+serviceMonitor:
+  enabled: false
+  labels: {}
+  endpoints: []
+
+# Static PVCs / PVs — none (stateless; emptyDirs only).
+persistentVolumeClaims: []
+persistentVolumes: []
+
+# Extra labels merged into the standard label block.
+extraLabels: {}
