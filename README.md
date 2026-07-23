@@ -71,3 +71,7 @@ GitHub Actions on push/PR to `main`:
 - `pluto` (deprecated Kubernetes API detection)
 
 All actions/tools pinned to latest stable.
+
+## License
+
+© 2026 Gyula Asztalos. Licensed under the **MIT License** — see [`LICENSE`](LICENSE).
