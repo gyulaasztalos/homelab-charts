@@ -6,8 +6,10 @@ description: >-
   ServiceMonitor, PVC, ExternalSecret, ConfigMap) encoding homelab conventions.
 icon: https://helm.sh/img/helm.svg
 type: library
+# 0.3.0 — podSpec gains `extraContainers` (sidecars appended after the main
+#         container, passed through verbatim). Added for unbound's exporter.
 # 0.2.0 — serviceAccount gains an optional `secrets:` back-reference and an
 #         optional long-lived `tokenSecret` (kubernetes.io/service-account-token).
-version: 0.2.0
+version: 0.3.0
 maintainers:
   - name: gyulaasztalos

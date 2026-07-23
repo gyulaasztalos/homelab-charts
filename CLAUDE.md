@@ -189,5 +189,13 @@ out the whole repo for the chart source.
 - **`.gitignore` cannot take trailing comments** — git treats the whole line as
   the pattern. Three rules were silently dead because of this. Keep every comment
   on its own line.
+- **Bumping `charts/common` is a 7-step change, not a 1-file change.** A new knob
+  goes into all 6 generic *and* all 6 tailored `values.yaml` (even for apps that
+  will never use it — each file claims to list every value the library
+  understands), and every wrapper's `common` floor moves to the new version. The
+  failure mode is silent: an undeclared knob in values.yaml against an older
+  `common` is ignored, not rejected. Also check Renovate coverage for
+  verbatim-passthrough lists, and prove additivity with `hack/diff-charts.sh`.
+  Full checklist in `PLAN.md` → "`common` versioning".
 - One app cut over and confirmed healthy in-cluster before starting the next.
 - Chart README is updated as the **final** step of each migration.

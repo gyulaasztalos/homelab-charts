@@ -7,9 +7,10 @@ version: 0.1.0
 # NOTE: no appVersion here on purpose. The deployed app version is the container
 # image tag in values.yaml (image.tag), which is the single source of truth and is
 # kept current by Renovate. Duplicating it as appVersion would only risk drift.
-# Requires common >= 0.2.0 for serviceAccount.tokenSecret (the long-lived
-# ServiceAccount token the `kubernetes` widget needs in cluster mode).
+# Requires common >= 0.3.0: serviceAccount.tokenSecret (the long-lived token the
+# `kubernetes` widget needs in cluster mode) and extraContainers, which every
+# chart's values.yaml now declares.
 dependencies:
   - name: common
-    version: ">= 0.2.0"
+    version: ">= 0.3.0"
     repository: "file://../common"

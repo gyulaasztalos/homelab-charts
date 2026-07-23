@@ -40,6 +40,15 @@
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s*\\n\\s*tag:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Update combined `image: repo:tag` strings in values.yaml (sidecars under extraContainers/initContainers are passed to the chart verbatim, so they cannot use the structured image.repository/image.tag form the manager above relies on)",
+      "managerFilePatterns": ["/values\\.yaml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s*\\n\\s*-?\\s*image:\\s*[\"']?[^\"'\\s]+:(?<currentValue>[^\"'\\s]+)[\"']?"
+      ],
+      "datasourceTemplate": "docker"
     }
   ]
 }

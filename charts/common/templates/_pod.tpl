@@ -99,6 +99,20 @@ containers:
     volumeMounts:
 {{ toYaml . | indent 6 }}
     {{- end }}
+{{- /*
+  Additional runtime containers (sidecars), appended after the main container and
+  passed through VERBATIM — same contract as initContainers. Used when a workload
+  genuinely needs a co-process in the same pod, e.g. unbound's exporter reading
+  the resolver's control socket over a shared emptyDir.
+
+  Deliberately additive: a chart that does not set extraContainers renders exactly
+  as before, so adding this cannot disturb an already-proven app. Because the list
+  is verbatim, a sidecar's image is a plain "repo:tag" string rather than the
+  structured .Values.image — see renovate.json for how those tags stay updated.
+*/}}
+{{- with .Values.extraContainers }}
+{{ toYaml . | indent 2 }}
+{{- end }}
 restartPolicy: {{ .Values.restartPolicy | default "Always" }}
 {{- if .Values.serviceAccountName }}
 serviceAccountName: {{ .Values.serviceAccountName }}

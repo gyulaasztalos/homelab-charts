@@ -1,0 +1,14 @@
+apiVersion: v2
+name: unbound
+description: Unbound recursive DNS resolver (klutchell/unbound) with a metrics exporter sidecar — DNS-over-TLS forwarding for the homelab.
+icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/unbound.svg
+type: application
+version: 0.1.0
+# NOTE: no appVersion here on purpose. The deployed app version is the container
+# image tag in values.yaml (image.tag), which is the single source of truth and is
+# kept current by Renovate. Duplicating it as appVersion would only risk drift.
+# Requires common >= 0.3.0 for extraContainers (the unbound-exporter sidecar).
+dependencies:
+  - name: common
+    version: ">= 0.3.0"
+    repository: "file://../common"
