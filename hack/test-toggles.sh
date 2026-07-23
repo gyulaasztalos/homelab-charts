@@ -67,6 +67,58 @@ else
   bad "ingressRoute default did NOT render an IngressRoute — test is vacuous"
 fi
 
+# 4) ingressRoute.routes[].middlewares: [] must render NO middlewares.
+#
+# The list-shaped sibling of the same trap: Helm's `default` treats an EMPTY LIST
+# as empty, so `$route.middlewares | default (list authentik default-headers)`
+# returned the auth pair for `middlewares: []` exactly as it did for an absent
+# key. The documented "set [] to drop auth" silently did the opposite. `hasKey`
+# is the fix. Caught during the apprise migration, where two machine-facing API
+# routes (/notify, /apprise) must NOT be behind authentik forward-auth —
+# otherwise every notification producer in the cluster gets 302'd to a login page.
+mw_fixture="$(mktemp)"; trap 'rm -f "$mw_fixture"' EXIT
+cat > "$mw_fixture" <<'YAML'
+ingressRoute:
+  enabled: true
+  routes:
+    - host: noauth.example.com
+      port: 8000
+      pathPrefix: /notify
+      middlewares: []
+    - host: guarded.example.com
+      port: 8000
+YAML
+
+mw_render="$(helm template "$CHART" -f "$mw_fixture" 2>/dev/null)"
+
+# The [] route must have no middlewares; the sibling route (key absent) must keep
+# the default pair — so the assertion cannot pass by dropping middlewares wholesale.
+noauth_mw="$(printf '%s' "$mw_render" | yq ea 'select(.kind=="IngressRoute") | .spec.routes[] | select(.match == "Host(`noauth.example.com`) && PathPrefix(`/notify`)") | (.middlewares // []) | length' - 2>/dev/null)"
+guarded_mw="$(printf '%s' "$mw_render" | yq ea 'select(.kind=="IngressRoute") | .spec.routes[] | select(.match == "Host(`guarded.example.com`)") | (.middlewares // []) | length' - 2>/dev/null)"
+
+if [ "$noauth_mw" = "0" ]; then
+  pass "middlewares: [] renders NO middlewares"
+else
+  bad "middlewares: [] still rendered $noauth_mw middleware(s) — the default leaked back in"
+fi
+if [ "$guarded_mw" = "2" ]; then
+  pass "omitted middlewares still defaults to authentik + default-headers"
+else
+  bad "omitted middlewares rendered $guarded_mw middleware(s), expected 2 — test is vacuous"
+fi
+
+# 5) pathPrefix must extend the match rather than replace it.
+if printf '%s' "$mw_render" | grep -qF 'Host(`noauth.example.com`) && PathPrefix(`/notify`)'; then
+  pass "pathPrefix extends the match expression"
+else
+  bad "pathPrefix did not produce Host(...) && PathPrefix(...)"
+fi
+if printf '%s' "$mw_render" | grep -qF 'match: Host(`guarded.example.com`)'; then
+  pass "a route without pathPrefix matches on host alone"
+else
+  bad "route without pathPrefix did not match on host alone — test is vacuous"
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "TOGGLE REGRESSION TEST FAILED" >&2
   exit 1

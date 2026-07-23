@@ -10,5 +10,5 @@ version: 0.1.0
 # Requires common >= 0.3.0 for extraContainers (the unbound-exporter sidecar).
 dependencies:
   - name: common
-    version: ">= 0.3.0"
+    version: ">= 0.4.0"
     repository: "file://../common"

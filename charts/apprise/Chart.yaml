@@ -1,0 +1,16 @@
+apiVersion: v2
+name: apprise
+description: Apprise API notification gateway (LinuxServer.io) with a mailrise SMTP-to-Apprise sidecar — the homelab's notification fan-out hub.
+icon: https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/apprise.png
+type: application
+version: 0.1.0
+# NOTE: no appVersion here on purpose. The deployed app version is the container
+# image tag in values.yaml (image.tag), which is the single source of truth and is
+# kept current by Renovate. Duplicating it as appVersion would only risk drift.
+# Requires common >= 0.4.0: extraContainers (the mailrise sidecar), plus
+# ingressRoute pathPrefix and the corrected `middlewares: []` semantics that keep
+# the machine-facing /notify and /apprise routes free of authentik forward-auth.
+dependencies:
+  - name: common
+    version: ">= 0.4.0"
+    repository: "file://../common"
