@@ -1,0 +1,243 @@
+# =============================================================================
+# nut-exporter — EXAMPLE values (generic / shareable)
+# Rendered through the `common` library chart (see charts/common).
+#
+# This file is a self-documenting EXAMPLE: every value the library chart
+# understands is listed with its effective default and a comment. The values
+# here are GENERIC placeholders (example.com, sample secret refs, sample UPS
+# names) so anyone can fork this chart. The real, domain-specific deployment
+# config lives in the GitOps repo (apps/nut-exporter/values.yaml) and overrides
+# this file at deploy time via Helm `valueFiles`. The chart still renders validly
+# on these defaults alone (CI renders it), it just points at example.com.
+#
+# nut_exporter polls a NUT (Network UPS Tools) server over the network and
+# re-exposes the UPS variables as Prometheus metrics. It holds no state of its
+# own and needs no host hardware, so per the homelab rule it is a Deployment.
+# =============================================================================
+
+# App identity. `name` drives all resource names, labels and the namespace
+# (namespace defaults to name).
+name: nut-exporter
+namespace: nut-exporter
+
+# -----------------------------------------------------------------------------
+# Container image. `image.tag` is the SINGLE source of truth for the app version
+# (there is deliberately no Chart.yaml appVersion). Renovate bumps the tag below.
+# -----------------------------------------------------------------------------
+image:
+  repository: druggeri/nut_exporter
+  # renovate: datasource=docker depName=druggeri/nut_exporter
+  tag: 3.3.0
+  pullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# Controller. type = deployment | statefulset | daemonset.
+# Stateless network poller — no owned PVC, no node-local hardware — so it is a
+# plain Deployment with the standard rolling update.
+# -----------------------------------------------------------------------------
+controller:
+  type: deployment
+  replicas: 1
+  progressDeadlineSeconds: 600
+  revisionHistoryLimit: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+
+# -----------------------------------------------------------------------------
+# Pod security. Homelab standard: fully non-root, RuntimeDefault seccomp.
+# -----------------------------------------------------------------------------
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsGroup: 1000
+  runAsNonRoot: true
+
+# Container-level security context.
+securityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  privileged: false
+
+# Schedule at most one replica per node (default true in the library chart).
+podAntiAffinity: true
+
+# -----------------------------------------------------------------------------
+# Ports exposed by the container.
+# -----------------------------------------------------------------------------
+ports:
+  - name: http
+    containerPort: 9199
+    protocol: TCP
+
+# -----------------------------------------------------------------------------
+# Configuration. Non-secret env (which NUT server to poll, which variables to
+# export) comes from a generated ConfigMap; the NUT credentials come from the
+# ExternalSecret-created Secret, both via envFrom.
+# -----------------------------------------------------------------------------
+envFromConfigMap: nut-exporter-config
+envFromSecrets:
+  - nut-exporter-secret
+env: []
+
+configMaps:
+  - name: nut-exporter-config
+    data:
+      # Address of your NUT server (upsd). Override in the GitOps values.
+      NUT_EXPORTER_SERVER: "nut.example.com"
+      NUT_EXPORTER_SERVERPORT: "3493"
+      # Comma-separated UPS variables to export. Trim this list to reduce metric
+      # cardinality — the rPi cluster is memory-constrained.
+      NUT_EXPORTER_VARIABLES: "ups.status,input.voltage,ups.load,battery.runtime,ups.beeper.status,battery.charge,battery.voltage,device.model,output.voltage"
+
+# -----------------------------------------------------------------------------
+# Secrets — ExternalSecret referencing the onepassword-connect ClusterSecretStore.
+# Supplies the NUT server login as env vars (consumed via envFromSecrets above).
+# NO secret material is stored here — only references. Replace the 1Password
+# item/property names to match your own vault in the GitOps values.
+# NOTE: the {{ .username }} placeholders below are the ExternalSecret's OWN
+# templating (engineVersion v2), resolved by External Secrets Operator at
+# runtime. They are written RAW on purpose: values.yaml is not processed by Helm,
+# so these braces pass through untouched into the rendered manifest.
+# -----------------------------------------------------------------------------
+externalSecrets:
+  - name: nut-exporter-secret
+    refreshInterval: 1h
+    target:
+      template:
+        engineVersion: v2
+        type: Opaque
+        data:
+          NUT_EXPORTER_USERNAME: "{{ .username }}"
+          NUT_EXPORTER_PASSWORD: "{{ .password }}"
+    data:
+      - secretKey: username
+        remoteRef:
+          key: nut-exporter
+          property: username
+      - secretKey: password
+        remoteRef:
+          key: nut-exporter
+          property: password
+
+# -----------------------------------------------------------------------------
+# Resources.
+# -----------------------------------------------------------------------------
+resources:
+  requests:
+    cpu: 10m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
+
+# -----------------------------------------------------------------------------
+# Probes — the exporter serves /metrics on :9199 as soon as it is up.
+# -----------------------------------------------------------------------------
+readinessProbe:
+  httpGet:
+    path: /metrics
+    port: 9199
+  initialDelaySeconds: 10
+  periodSeconds: 20
+  failureThreshold: 5
+  successThreshold: 1
+  timeoutSeconds: 10
+
+livenessProbe:
+  httpGet:
+    path: /metrics
+    port: 9199
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  failureThreshold: 5
+  successThreshold: 1
+  timeoutSeconds: 10
+
+# -----------------------------------------------------------------------------
+# Volumes / mounts — none. The exporter is stateless and runs on a read-only
+# root filesystem.
+# -----------------------------------------------------------------------------
+volumeMounts: []
+volumes: []
+
+# Init containers (none for this app).
+initContainers: []
+
+# -----------------------------------------------------------------------------
+# Service(s) — a list, so a workload can expose more than one. ClusterIP,
+# selects on the `app` label by default.
+# -----------------------------------------------------------------------------
+services:
+  - name: nut-exporter
+    enabled: true
+    type: ClusterIP
+    ports:
+      - name: http
+        protocol: TCP
+        port: 9199
+        targetPort: http
+
+# -----------------------------------------------------------------------------
+# Traefik IngressRoute — one object with a `routes` list (a single IngressRoute
+# can expose several routes). Browser path guarded by authentik + default-headers.
+# Override `host` with your real hostname in the GitOps values.
+# -----------------------------------------------------------------------------
+ingressRoute:
+  enabled: true
+  ingressClassName: traefik-external
+  entryPoint: websecure
+  tlsSecretName: example-com-tls
+  routes:
+    - host: nut-exporter.example.com
+      serviceName: nut-exporter
+      port: 9199
+      priority: 10
+      middlewares:
+        - name: authentik
+          namespace: traefik
+        - name: default-headers
+          namespace: traefik
+
+# -----------------------------------------------------------------------------
+# ServiceMonitor. nut_exporter serves per-UPS metrics on /ups_metrics, selected
+# by a `ups` query parameter — so ONE endpoint per UPS attached to the NUT
+# server, each relabeled with a `ups` label. Add/remove entries to match your own
+# UPS names.
+# -----------------------------------------------------------------------------
+serviceMonitor:
+  enabled: true
+  labels:
+    release: prometheus-operator
+  endpoints:
+    - path: /ups_metrics
+      interval: 30s
+      targetPort: http
+      honorLabels: true
+      params:
+        ups: ["ups1"]
+      relabelings:
+        - action: replace
+          targetLabel: ups
+          replacement: ups1
+    - path: /ups_metrics
+      interval: 30s
+      targetPort: http
+      honorLabels: true
+      params:
+        ups: ["ups2"]
+      relabelings:
+        - action: replace
+          targetLabel: ups
+          replacement: ups2
+
+# Static PVCs / PVs — none (stateless).
+persistentVolumeClaims: []
+persistentVolumes: []
+
+# Extra labels merged into the standard label block.
+extraLabels: {}
