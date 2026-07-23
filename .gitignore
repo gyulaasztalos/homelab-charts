@@ -23,7 +23,11 @@ PLAN.md
 *.swp
 *~
 .idea/
-.vscode/
+# Ignore the whole .vscode dir EXCEPT the shared settings.json. Note the form:
+# `.vscode/*` (contents) not `.vscode/` (the dir) — git will not descend into a
+# fully-excluded directory, so a negation for a file inside it would never match.
+.vscode/*
+!.vscode/settings.json
 
 # Secrets — belt-and-braces; this repo must never hold secret material
 *.key

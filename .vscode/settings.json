@@ -1,0 +1,14 @@
+{
+  // Each wrapper chart's templates/main.yaml is a one-line Helm template
+  // (`{{- include "common.all" . }}`). That is valid Helm but NOT valid YAML —
+  // the redhat.vscode-yaml language server reads `{{` as a broken flow map and
+  // reports "Block collections are not allowed within flow collections". These
+  // files are gotemplate, not YAML, so associate them with the `helm` language:
+  // the YAML validator only activates on languageId `yaml`, so it stops touching
+  // them. Works whether or not a Helm extension is installed (no extension → the
+  // files are simply not YAML-validated). The library chart's partials live in
+  // charts/common/templates/_*.tpl, which the YAML extension already ignores.
+  "files.associations": {
+    "**/charts/*/templates/*.yaml": "helm"
+  }
+}
