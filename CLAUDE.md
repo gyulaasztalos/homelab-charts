@@ -178,7 +178,13 @@ out the whole repo for the chart source.
 
 - No `appVersion` in `Chart.yaml` — `image.tag` in values.yaml is the single
   source of truth, Renovate-managed via a `# renovate: datasource=docker` comment
-  directly above the `tag:` line.
+  directly above the `tag:` line. `datasource=docker` covers every OCI registry
+  (ghcr.io, lscr.io, quay.io, Docker Hub) — the host is read from `depName`.
+- A **floating `:latest` tag** (an image with no pinned release, e.g. mailrise)
+  needs three things together: a `latest-tag` kube-linter waiver, no Renovate
+  annotation (Renovate can't track it), and — the one easy to forget —
+  `imagePullPolicy: Always`. With `IfNotPresent` the node serves its first cached
+  `:latest` forever, so the pull policy is the only thing that makes the tag float.
 - `Chart.lock` and vendored `charts/*/charts/` are **untracked build artifacts** —
   `helm dependency build` regenerates them, and it works fine with no lock
   present (verified: identical render). Keeping them out means a stale pin can

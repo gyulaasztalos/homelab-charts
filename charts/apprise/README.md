@@ -31,9 +31,13 @@ the `run-as-non-root` kube-linter waiver). `mailrise` is an ordinary image and
 does get the full treatment — non-root uid 999, read-only rootfs, all capabilities
 dropped.
 
-`mailrise` is pinned to `:latest` upstream, which is why the Deployment carries a
-`latest-tag` waiver. Renovate cannot track a floating tag, so this one image is
-deliberately outside Renovate's control.
+`mailrise` has no pinned release tag on Docker Hub, so it must use `:latest` —
+which is why the Deployment carries a `latest-tag` waiver, and why the image is
+deliberately outside Renovate's control (Renovate cannot track a floating tag).
+Its `imagePullPolicy` is therefore **`Always`**, not the chart's usual
+`IfNotPresent`: with a floating tag, the pull policy is the only thing that makes
+the node actually re-pull a new release rather than serve its first cached
+`:latest` forever.
 
 ## The auth-critical route table
 
