@@ -9,6 +9,7 @@ ingress, monitoring) for readable diffs.
 {{ include "common.externalsecrets" . }}
 {{ include "common.configmaps" . }}
 {{ include "common.pvcs" . }}
+{{ include "common.serviceaccount" . }}
 {{ include "common.controller" . }}
 {{ include "common.service" . }}
 {{ include "common.ingressroute" . }}

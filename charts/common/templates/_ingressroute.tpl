@@ -1,37 +1,60 @@
 {{/*
-common.ingressroute — Traefik IngressRoute. Homelab defaults: websecure entrypoint,
-authentik + default-headers middlewares (browser path), the local wildcard TLS
-secret. Set ingress.enabled: false to skip; ingress.middlewares: [] to drop auth
-(e.g. pure API/metrics endpoints hit in-cluster).
+common.ingressroute — renders a single Traefik IngressRoute whose `spec.routes`
+is a LIST, so one workload can expose several routes (distinct hosts, or one
+host per backing service) from ONE IngressRoute object.
+
+  ingressRoute:
+    enabled: true                        # optional; set false to skip entirely
+    ingressClassName: traefik-external   # optional; default traefik-external
+    entryPoint: websecure                # optional; default websecure
+    tlsSecretName: example-com-tls       # optional; default example-com-tls
+    routes:
+      - host: <app>.example.com          # REQUIRED per route
+        serviceName: <app>               # optional; defaults to the app name —
+                                         # point at a specific Service when several exist
+        port: 8000                       # REQUIRED per route
+        priority: 10                     # optional; default 10
+        middlewares:                     # optional; defaults to authentik +
+          - {name: authentik, namespace: traefik}         # default-headers.
+          - {name: default-headers, namespace: traefik}   # set [] to drop auth
+
+The whole IngressRoute is skipped when `ingressRoute.enabled` is explicitly
+false, or when `ingressRoute` (or its `routes`) is omitted — metrics-only apps
+hit in-cluster simply leave it out.
 */}}
 {{- define "common.ingressroute" -}}
-{{- if .Values.ingress.enabled -}}
+{{- $ir := .Values.ingressRoute | default dict }}
+{{- if and (ne ($ir.enabled | toString) "false") $ir.routes }}
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
-  name: {{ include "common.name" . }}
+  name: {{ $ir.name | default (include "common.name" .) }}
   namespace: {{ include "common.namespace" . }}
   labels:
 {{ include "common.labels" . | indent 4 }}
 spec:
-  ingressClassName: {{ .Values.ingress.ingressClassName | default "traefik-external" }}
+  ingressClassName: {{ $ir.ingressClassName | default "traefik-external" }}
   entryPoints:
-    - {{ .Values.ingress.entryPoint | default "websecure" }}
+    - {{ $ir.entryPoint | default "websecure" }}
   routes:
+{{- $ns := include "common.namespace" . }}
+{{- $appName := include "common.name" . }}
+{{- range $route := $ir.routes }}
     - kind: Rule
-      match: Host(`{{ required "ingress.host is required when ingress.enabled" .Values.ingress.host }}`)
-      priority: {{ .Values.ingress.priority | default 10 }}
-      {{- $mw := .Values.ingress.middlewares | default (list (dict "name" "authentik" "namespace" "traefik") (dict "name" "default-headers" "namespace" "traefik")) }}
+      match: Host(`{{ required "ingressRoute.routes[].host is required" $route.host }}`)
+      priority: {{ $route.priority | default 10 }}
+      {{- $mw := $route.middlewares | default (list (dict "name" "authentik" "namespace" "traefik") (dict "name" "default-headers" "namespace" "traefik")) }}
       {{- with $mw }}
       middlewares:
 {{ toYaml . | indent 8 }}
       {{- end }}
       services:
-        - name: {{ include "common.name" . }}
-          namespace: {{ include "common.namespace" . }}
-          port: {{ required "ingress.port is required when ingress.enabled" .Values.ingress.port }}
+        - name: {{ $route.serviceName | default $appName }}
+          namespace: {{ $ns }}
+          port: {{ required "ingressRoute.routes[].port is required" $route.port }}
+{{- end }}
   tls:
-    secretName: {{ .Values.ingress.tlsSecretName | default "local-asztalos-net-tls" }}
-{{- end -}}
+    secretName: {{ $ir.tlsSecretName | default "example-com-tls" }}
+{{- end }}
 {{- end -}}

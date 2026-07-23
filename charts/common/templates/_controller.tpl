@@ -39,7 +39,7 @@ spec:
 {{ toYaml (.Values.controller.strategy | default (dict "type" "RollingUpdate" "rollingUpdate" (dict "maxSurge" 1 "maxUnavailable" 1))) | indent 4 }}
   selector:
     matchLabels:
-{{ include "common.selectorLabels" . | indent 6 }}
+{{ include "common.controllerSelector" . | indent 6 }}
   template:
 {{ include "common.podTemplateMeta" . | indent 4 }}
     spec:
@@ -69,7 +69,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-{{ include "common.selectorLabels" . | indent 6 }}
+{{ include "common.controllerSelector" . | indent 6 }}
   template:
 {{ include "common.podTemplateMeta" . | indent 4 }}
     spec:
@@ -101,7 +101,7 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-{{ include "common.selectorLabels" . | indent 6 }}
+{{ include "common.controllerSelector" . | indent 6 }}
   template:
 {{ include "common.podTemplateMeta" . | indent 4 }}
     spec:

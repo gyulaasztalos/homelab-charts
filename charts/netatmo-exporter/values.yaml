@@ -215,33 +215,37 @@ volumes:
       secretName: netatmo-exporter-secret
 
 # -----------------------------------------------------------------------------
-# Service (ClusterIP), targetPort by name.
+# Service(s) — list form. ClusterIP, targetPort by name.
 # -----------------------------------------------------------------------------
-service:
-  enabled: true
-  type: ClusterIP
-  ports:
-    - name: http
-      protocol: TCP
-      port: 9210
-      targetPort: http
+services:
+  - name: netatmo-exporter
+    enabled: true
+    type: ClusterIP
+    ports:
+      - name: http
+        protocol: TCP
+        port: 9210
+        targetPort: http
 
 # -----------------------------------------------------------------------------
-# Traefik IngressRoute (browser path guarded by authentik + default-headers).
+# Traefik IngressRoute — one object with a `routes` list. Browser path guarded
+# by authentik + default-headers.
 # -----------------------------------------------------------------------------
-ingress:
+ingressRoute:
   enabled: true
   ingressClassName: traefik-external
   entryPoint: websecure
-  host: netatmo-exporter.example.com
-  port: 9210
-  priority: 10
-  middlewares:
-    - name: authentik
-      namespace: traefik
-    - name: default-headers
-      namespace: traefik
   tlsSecretName: example-com-tls
+  routes:
+    - host: netatmo-exporter.example.com
+      serviceName: netatmo-exporter
+      port: 9210
+      priority: 10
+      middlewares:
+        - name: authentik
+          namespace: traefik
+        - name: default-headers
+          namespace: traefik
 
 # -----------------------------------------------------------------------------
 # ServiceMonitor — this exporter IS scraped. `release: prometheus-operator` label

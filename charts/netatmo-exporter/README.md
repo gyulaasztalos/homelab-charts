@@ -18,8 +18,8 @@ config** (`example.com` host, sample 1Password refs) plus every default, so it
 renders on its own and anyone can fork it. The **real deployment config** lives in
 the GitOps repo (`apps/netatmo-exporter/values.yaml`) and is layered over this
 chart by the ArgoCD Application via `helm.valueFiles`. Override at minimum:
-`ingress.host`, `ingress.tlsSecretName`, `NETATMO_EXPORTER_EXTERNAL_URL` and the
-`externalSecrets` refs.
+`ingressRoute.routes[].host`, `ingressRoute.tlsSecretName`,
+`NETATMO_EXPORTER_EXTERNAL_URL` and the `externalSecrets` refs.
 
 ## Notes
 
@@ -60,8 +60,8 @@ All values are set in [`values.yaml`](values.yaml) with their effective defaults
 | `readinessProbe` / `livenessProbe` | httpGet `/metrics` :9210 | Health checks. |
 | `volumeMounts` | `config` → /config | Container mounts. |
 | `volumes` | `netatmo-exporter-secret` (secret) | Non-PVC volumes. |
-| `service.*` | ClusterIP, http 9210 → targetPort http | Service. |
-| `ingress.*` | host `netatmo-exporter.example.com`, authentik + default-headers | Traefik IngressRoute (override host in GitOps values). |
+| `services` | `[{name: netatmo-exporter, ClusterIP, http 9210 → targetPort http}]` | Service **list** (one workload can expose several). |
+| `ingressRoute` | 1 route, host `netatmo-exporter.example.com`, authentik + default-headers | Single Traefik IngressRoute with a `routes` **list** (override host in GitOps values). |
 | `serviceMonitor.enabled` | `true` | Scraped. |
 | `serviceMonitor.labels` | `release: prometheus-operator` | Preserved from original (harmless). |
 | `serviceMonitor.endpoints` | `/metrics` @30s, targetPort http | Scrape config. |

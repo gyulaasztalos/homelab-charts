@@ -12,17 +12,24 @@ kustomize behavior, which only hashed generated ConfigMaps/Secrets.
 
 {{/*
 common.podTemplateMeta — the shared `spec.template.metadata` block (labels +
-checksum/config annotation + optional podAnnotations). Used by all three
-controllers so the metadata stays identical.
+optional annotations). Used by all three controllers so the metadata stays
+identical. The `checksum/config` annotation is emitted ONLY when the chart owns
+ConfigMaps (so config changes roll the pods); apps with no ConfigMaps get no
+spurious annotation. The annotations block itself is omitted entirely when there
+is nothing to put in it.
 */}}
 {{- define "common.podTemplateMeta" -}}
 metadata:
   labels:
 {{ include "common.labels" . | indent 4 }}
+{{- if or .Values.configMaps .Values.podAnnotations }}
   annotations:
+{{- if .Values.configMaps }}
     checksum/config: {{ include "common.configChecksum" . | quote }}
+{{- end }}
 {{- with .Values.podAnnotations }}
 {{ toYaml . | indent 4 }}
+{{- end }}
 {{- end }}
 {{- end -}}
 
@@ -93,6 +100,12 @@ containers:
 {{ toYaml . | indent 6 }}
     {{- end }}
 restartPolicy: {{ .Values.restartPolicy | default "Always" }}
+{{- if .Values.serviceAccountName }}
+serviceAccountName: {{ .Values.serviceAccountName }}
+{{- end }}
+{{- if .Values.hostNetwork }}
+hostNetwork: {{ .Values.hostNetwork }}
+{{- end }}
 {{- with .Values.volumes }}
 volumes:
 {{ toYaml . | indent 2 }}
@@ -101,7 +114,7 @@ volumes:
 securityContext:
 {{ toYaml . | indent 2 }}
 {{- end }}
-{{- if .Values.podAntiAffinity | default true }}
+{{- if ne (.Values.podAntiAffinity | toString) "false" }}
 affinity:
   podAntiAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:

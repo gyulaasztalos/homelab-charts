@@ -16,8 +16,9 @@ This chart's [`values.yaml`](values.yaml) holds **generic, shareable example
 config** (`example.com` hostnames, sample 1Password refs) plus every default, so
 it renders on its own and anyone can fork it. The **real deployment config** lives
 in the GitOps repo (`apps/ddns-updater/values.yaml`) and is layered over this chart
-by the ArgoCD Application via `helm.valueFiles`. Override at minimum: `ingress.host`,
-`ingress.tlsSecretName`, the `externalSecrets` domains/refs and `SHOUTRRR_ADDRESSES`.
+by the ArgoCD Application via `helm.valueFiles`. Override at minimum:
+`ingressRoute.routes[].host`, `ingressRoute.tlsSecretName`, the `externalSecrets`
+domains/refs and `SHOUTRRR_ADDRESSES`.
 
 ## Values
 
@@ -50,14 +51,12 @@ defaults (generic example values). This table documents them.
 | `volumeMounts` | secret→config.json, data→/updater/data | Container mounts. |
 | `volumes` | `ddns-updater-secret` (secret) | Non-PVC volumes (the `data` PVC comes from the volumeClaimTemplate). |
 | `initContainers` | `[]` | None. |
-| `service.enabled` | `true` | Render the Service. |
-| `service.type` | `ClusterIP` | Service type. |
-| `service.ports` | webui 8000 | Service ports. |
-| `ingress.enabled` | `true` | Render the Traefik IngressRoute. |
-| `ingress.host` | `ddns-updater.example.com` | Route host (override in GitOps values). |
-| `ingress.port` | `8000` | Backend port. |
-| `ingress.middlewares` | authentik + default-headers | Browser-path auth middlewares. |
-| `ingress.tlsSecretName` | `example-com-tls` | TLS secret (override in GitOps values). |
+| `services` | `[{name: ddns-updater, ClusterIP, webui 8000}]` | Service **list** — one workload can expose several; `enabled: false` skips one. |
+| `ingressRoute.enabled` | `true` | Render the Traefik IngressRoute (set false to skip). |
+| `ingressRoute.tlsSecretName` | `example-com-tls` | TLS secret (override in GitOps values). |
+| `ingressRoute.routes` | 1 route → webui 8000 | `routes` **list** inside the single IngressRoute (host/serviceName/port/priority/middlewares per route). |
+| `ingressRoute.routes[].host` | `ddns-updater.example.com` | Route host (override in GitOps values). |
+| `ingressRoute.routes[].middlewares` | authentik + default-headers | Browser-path auth middlewares. |
 | `serviceMonitor.enabled` | `false` | **See note** — believed to be a bug that this is off; tracked in the project backlog. |
 | `persistentVolumeClaims` / `persistentVolumes` | `[]` | None (RWO handled by volumeClaimTemplates). |
 | `extraLabels` | `{}` | Extra labels merged into the standard label block. |

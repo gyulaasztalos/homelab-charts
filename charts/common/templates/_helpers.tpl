@@ -39,3 +39,20 @@ app.kubernetes.io/name: {{ include "common.name" . }}
 {{- define "common.serviceSelector" -}}
 app: {{ include "common.name" . }}
 {{- end -}}
+
+{{/*
+common.controllerSelector — the matchLabels used by the controller's
+spec.selector. Defaults to common.selectorLabels. Can be overridden per app via
+.Values.controller.selectorLabels — needed when migrating an existing controller
+whose selector is immutable (e.g. a DaemonSet that stays a DaemonSet): reproduce
+the original selector exactly so the in-place apply doesn't hit an immutable-field
+error. The pod template always carries the full common.labels set, so any subset
+selector remains satisfied.
+*/}}
+{{- define "common.controllerSelector" -}}
+{{- with .Values.controller.selectorLabels -}}
+{{ toYaml . }}
+{{- else -}}
+{{ include "common.selectorLabels" . }}
+{{- end -}}
+{{- end -}}

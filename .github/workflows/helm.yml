@@ -31,7 +31,7 @@ jobs:
           # - IngressRoute is skipped: the public CRD catalog schema for traefik.io
           #   IngressRoute is stale and rejects the VALID spec.ingressClassName field
           #   (present in current Traefik CRDs and in the existing cluster manifests).
-          #   Documented CI exception — see PLAN.md "CI as a living suite".
+          #   Documented CI exception.
           KC_ARGS=(
             -strict -summary -ignore-missing-schemas
             -schema-location default
@@ -47,3 +47,6 @@ jobs:
             helm template "$name" "$dir" | kubeconform "${KC_ARGS[@]}"
             echo "::endgroup::"
           done
+
+      - name: Boolean-toggle regression test
+        run: bash hack/test-toggles.sh

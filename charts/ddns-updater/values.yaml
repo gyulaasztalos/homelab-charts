@@ -223,34 +223,39 @@ volumes:
 initContainers: []
 
 # -----------------------------------------------------------------------------
-# Service (ClusterIP). Selects on the `app` label.
+# Service(s) — a list, so a workload can expose more than one. ClusterIP,
+# selects on the `app` label by default.
 # -----------------------------------------------------------------------------
-service:
-  enabled: true
-  type: ClusterIP
-  ports:
-    - name: webui
-      protocol: TCP
-      port: 8000
-      targetPort: 8000
+services:
+  - name: ddns-updater
+    enabled: true
+    type: ClusterIP
+    ports:
+      - name: webui
+        protocol: TCP
+        port: 8000
+        targetPort: 8000
 
 # -----------------------------------------------------------------------------
-# Traefik IngressRoute. Browser path guarded by authentik + default-headers.
-# Override `ingress.host` with your real hostname in the GitOps values.
+# Traefik IngressRoute — one object with a `routes` list (a single IngressRoute
+# can expose several routes). Browser path guarded by authentik + default-headers.
+# Override `host` with your real hostname in the GitOps values.
 # -----------------------------------------------------------------------------
-ingress:
+ingressRoute:
   enabled: true
   ingressClassName: traefik-external
   entryPoint: websecure
-  host: ddns-updater.example.com
-  port: 8000
-  priority: 10
-  middlewares:
-    - name: authentik
-      namespace: traefik
-    - name: default-headers
-      namespace: traefik
   tlsSecretName: example-com-tls
+  routes:
+    - host: ddns-updater.example.com
+      serviceName: ddns-updater
+      port: 8000
+      priority: 10
+      middlewares:
+        - name: authentik
+          namespace: traefik
+        - name: default-headers
+          namespace: traefik
 
 # -----------------------------------------------------------------------------
 # ServiceMonitor.
