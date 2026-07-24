@@ -42,10 +42,23 @@ jobs:
         with:
           name: rendered-manifests
           path: rendered/
-      - name: Run KubeLinter
-        uses: stackrox/kube-linter-action@87802a2f4e01abebb3ee3c67a3002fea71f6eae5 # v1
-        with:
-          directory: ./rendered
+      # NOTE: kube-linter is installed and run DIRECTLY rather than via
+      # stackrox/kube-linter-action. That action pipes `kube-linter lint … | tee`
+      # WITHOUT pipefail, so the pipeline's exit code is tee's (always 0) — lint
+      # findings were printed but never failed the job (the gate was decorative).
+      # Running the binary directly makes its non-zero exit fail the step. Mirrors
+      # how helm.yml installs kubeconform.
+      - name: Install kube-linter
+        run: |
+          set -euo pipefail
+          KL_VERSION="$(curl -fsSL https://api.github.com/repos/stackrox/kube-linter/releases/latest | grep -oP '"tag_name":\s*"\K[^"]+')"
+          curl -fsSL "https://github.com/stackrox/kube-linter/releases/download/${KL_VERSION}/kube-linter-linux.tar.gz" \
+            | tar xz kube-linter
+          sudo install -m 0755 kube-linter /usr/local/bin/kube-linter
+          kube-linter version
+
+      - name: Run kube-linter
+        run: kube-linter lint ./rendered
 
   pluto:
     needs: render
