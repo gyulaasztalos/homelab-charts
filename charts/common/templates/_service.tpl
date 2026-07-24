@@ -11,6 +11,8 @@ service, or web + metrics on different specs). Each list item:
       selector: {...}          # optional; defaults to common.serviceSelector (app=<name>)
       labels: {...}            # optional; merged into the standard label block
       annotations: {...}       # optional
+      loadBalancerIP: 10.0.0.1 # optional; only meaningful for type: LoadBalancer
+      externalTrafficPolicy: Local  # optional; Local preserves the client source IP
       ports: [...]
 
 A service is skipped when its own `enabled` is explicitly false.
@@ -37,6 +39,12 @@ spec:
   type: {{ $svc.type | default "ClusterIP" }}
   {{- with $svc.clusterIP }}
   clusterIP: {{ . }}
+  {{- end }}
+  {{- with $svc.loadBalancerIP }}
+  loadBalancerIP: {{ . }}
+  {{- end }}
+  {{- with $svc.externalTrafficPolicy }}
+  externalTrafficPolicy: {{ . }}
   {{- end }}
   selector:
   {{- with $svc.selector }}

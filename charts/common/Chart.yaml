@@ -6,6 +6,8 @@ description: >-
   ServiceMonitor, PVC, ExternalSecret, ConfigMap) encoding homelab conventions.
 icon: https://helm.sh/img/helm.svg
 type: library
+# 0.5.0 — common.service gains optional `loadBalancerIP` + `externalTrafficPolicy`
+#         (standard Service fields; needed for transmission's MetalLB peer LBs).
 # 0.4.0 — ingressRoute.routes[] gains `pathPrefix` (match becomes
 #         Host(`…`) && PathPrefix(`…`)), AND fixes middleware defaulting:
 #         `middlewares: []` now really renders none. Helm's `default` treats an
@@ -15,6 +17,6 @@ type: library
 #         container, passed through verbatim). Added for unbound's exporter.
 # 0.2.0 — serviceAccount gains an optional `secrets:` back-reference and an
 #         optional long-lived `tokenSecret` (kubernetes.io/service-account-token).
-version: 0.4.0
+version: 0.5.0
 maintainers:
   - name: gyulaasztalos

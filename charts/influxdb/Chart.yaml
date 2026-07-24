@@ -10,5 +10,5 @@ version: 0.1.0
 # Floor is >= 0.4.0 (uses ingressRoute pathPrefix + middlewares: [] from 0.4.0).
 dependencies:
   - name: common
-    version: ">= 0.4.0"
+    version: ">= 0.5.0"
     repository: "file://../common"
