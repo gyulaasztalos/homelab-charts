@@ -49,6 +49,15 @@
         "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>.+?)(?:\\s+versioning=(?<versioning>[a-z-]+?))?\\s*\\n\\s*-?\\s*image:\\s*[\"']?[^\"'\\s]+:(?<currentValue>[^\"'\\s]+)[\"']?"
       ],
       "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Update a version pinned in a shell variable inside values.yaml (e.g. an initContainer that downloads a GitHub release asset), annotated with a renovate comment. The datasource is taken FROM the comment (github-releases, etc.), so this is not docker-specific.",
+      "managerFilePatterns": ["/values\\.yaml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-z-]+) depName=(?<depName>\\S+?)(?:\\s+versioning=(?<versioning>[a-z-]+))?\\s*\\n\\s*[A-Za-z_][A-Za-z0-9_]*=[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
+      ],
+      "datasourceTemplate": "{{{datasource}}}"
     }
   ]
 }
