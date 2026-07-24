@@ -1,0 +1,13 @@
+apiVersion: v2
+name: cake-pricing
+description: cake-pricing — internal cake-pricing/quoting web app (behind Authentik). The chart renders the CORE workload only; the CNPG Database, migrate Job, price-sync CronJob, the headers Middleware and the smtp ExternalSecret live in the app's post-install source.
+type: application
+version: 0.1.0
+# NOTE: no appVersion here on purpose. The deployed app version is the container
+# image tag in values.yaml (image.tag), which is the single source of truth and is
+# kept current by Renovate. Duplicating it as appVersion would only risk drift.
+# Floor is >= 0.4.0 (uses ingressRoute pathPrefix + per-route middlewares).
+dependencies:
+  - name: common
+    version: ">= 0.4.0"
+    repository: "file://../common"
