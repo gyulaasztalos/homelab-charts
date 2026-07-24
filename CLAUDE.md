@@ -107,6 +107,10 @@ helm template charts/<app> | kubeconform -strict -summary -ignore-missing-schema
   -skip IngressRoute
 bash hack/test-toggles.sh
 helm template charts/<app> > /tmp/r.yaml && kube-linter lint /tmp/r.yaml && pluto detect-files -d /tmp
+# If the app has a post-install source, LINT IT TOO — the ArgoCD CI loops
+# apps/<app>/ per directory, so raw post-install manifests (Jobs, CronJobs,
+# extra Deployments) are gated. The rendered chart passing does NOT cover them.
+kube-linter lint ../ArgoCD/apps/<app>/post-install
 ```
 
 `-skip IngressRoute` is a documented exception: the public CRD catalog schema is
