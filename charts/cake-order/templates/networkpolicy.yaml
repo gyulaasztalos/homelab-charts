@@ -1,0 +1,135 @@
+{{- /*
+cake-order escape-hatch template: the two default-deny NetworkPolicies that form
+the in-cluster "DMZ" for this public app (a security-review go/no-go condition).
+Bespoke security rules for one app — the escape hatch, not a generic contract.
+Every pod in the namespace is default-denied; only the listed flows are open.
+*/ -}}
+{{- $app := include "common.name" . }}
+{{- $cf := printf "%s-cloudflared" $app }}
+{{- $ns := include "common.namespace" . }}
+---
+# A compromised cake-order pod can reach nothing but its own DB, the cake-pricing
+# intake port, DNS and SMTP.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $app }}-app
+  namespace: {{ $ns }}
+  labels:
+{{ include "common.labels" . | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $app }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # Public traffic arrives ONLY via the in-namespace cloudflared connector...
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $cf }}
+      ports:
+        - port: 8000
+    # ...plus the internal Traefik route (order.local.asztalos.net, dev/LAN)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: traefik
+      ports:
+        - port: 8000
+    # Prometheus scrapes /metrics
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 8000
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # own database on the shared CNPG cluster
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: databases
+      ports:
+        - port: 5432
+    # cake-pricing intake API (§8a) — pod port behind the :80 service
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cake-pricing
+      ports:
+        - port: 8000
+    # iCloud SMTP (STARTTLS)
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 587
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $cf }}
+  namespace: {{ $ns }}
+  labels:
+{{ include "common.labels" . | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $cf }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # metrics/readiness probes from Prometheus (kubelet probes are not
+    # subject to NetworkPolicy)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 2000
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Cloudflare edge: QUIC 7844 (primary) with 443 fallback
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - port: 7844
+          protocol: UDP
+        - port: 7844
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+    # the app itself
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: {{ $app }}
+      ports:
+        - port: 8000
+    # Umami analytics (optional, but the app works without it)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: umami
+      ports:
+        - port: 80

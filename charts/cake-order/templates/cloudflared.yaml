@@ -1,0 +1,86 @@
+{{- /*
+cake-order escape-hatch template: the Cloudflare Tunnel connector.
+
+This is a SECOND, distinct workload with its own identity (name/selector
+`<app>-cloudflared`, component `tunnel`), so `common`'s single-controller model
+can't render it and it isn't worth a generic contract for one app — the documented
+escape hatch (a per-chart template) is the right home. The tunnel token comes from
+the cake-order-tunnel-secret ExternalSecret (rendered via common's externalSecrets);
+the ingress rule (order.anitatortai.hu → the Service) lives in the Cloudflare
+dashboard. Outbound-only: no inbound ports, no exposed home IP.
+
+The image lives in values (Renovate-annotated) — a hardcoded tag in a template
+would escape the customManager. `replicas` defaults to 0 (the tunnel is currently
+parked; scale up to go live).
+*/ -}}
+{{- if .Values.cloudflared.enabled }}
+{{- $cf := .Values.cloudflared }}
+{{- $name := printf "%s-cloudflared" (include "common.name" .) }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ include "common.namespace" . }}
+  labels:
+    app: {{ $name }}
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: {{ include "common.name" . }}
+    app.kubernetes.io/instance: {{ include "common.name" . }}
+    app.kubernetes.io/component: tunnel
+spec:
+  replicas: {{ $cf.replicas | default 0 }}
+  revisionHistoryLimit: {{ $cf.revisionHistoryLimit | default 2 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $name }}
+        app.kubernetes.io/name: {{ $name }}
+        app.kubernetes.io/part-of: {{ include "common.name" . }}
+        app.kubernetes.io/instance: {{ include "common.name" . }}
+        app.kubernetes.io/component: tunnel
+    spec:
+      containers:
+        - name: cloudflared
+          image: "{{ $cf.image.repository }}:{{ $cf.image.tag }}"
+          args:
+            - tunnel
+            - --no-autoupdate
+            - --metrics
+            - 0.0.0.0:2000
+            - run
+          ports:
+            # Declared so the liveness probe's port is exposed (kube-linter
+            # liveness-port); --metrics binds cloudflared's /ready + metrics here.
+            - containerPort: 2000
+              name: metrics
+          env:
+            - name: TUNNEL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $cf.tunnelSecretName | default (printf "%s-tunnel-secret" (include "common.name" .)) }}
+                  key: token
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            privileged: false
+          resources:
+{{ toYaml $cf.resources | indent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            failureThreshold: 5
+      restartPolicy: Always
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+        runAsUser: 65532
+        runAsGroup: 65532
+        runAsNonRoot: true
+{{- end }}
