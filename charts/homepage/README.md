@@ -4,7 +4,7 @@
 page, with Kubernetes, Longhorn, Traefik and per-service widgets. Rendered through
 the [`common`](../common) library chart.
 
-Requires **`common` >= 0.2.0** for `serviceAccount.tokenSecret`.
+Requires **`common` >= 0.6.0** (uses `serviceAccount.tokenSecret`).
 
 ## Controller
 
@@ -37,16 +37,19 @@ in the token in-cluster. The `common` template has no `data`/`stringData` field 
 all, so it cannot carry secret material into the repo.
 
 The `ClusterRole` and `ClusterRoleBinding` that grant this SA its read access are
-**not** in the chart — see below.
+rendered by the chart as a per-chart escape-hatch template
+(`templates/rbac.yaml`) — see "Scope boundary".
 
 ## Scope boundary
 
-This app is split across two ArgoCD sources. The chart owns the core workload;
-`apps/homepage/pre-install/` (a kustomize dir in the ArgoCD repo) owns:
+This app is split across two ArgoCD sources. The chart owns the core workload
+**and** the cluster-scoped RBAC — a per-chart escape-hatch template
+(`templates/rbac.yaml`: the `ClusterRole` + `ClusterRoleBinding` granting the SA its
+Kubernetes-widget read access, rendered alongside the SA they bind to).
+`apps/homepage/pre-install/` keeps only the one thing a Helm chart cannot hold:
 
 | Object | Why it's out of the chart |
 |---|---|
-| `ClusterRole` + `ClusterRoleBinding` | Cluster-scoped RBAC — the existing scope-boundary rule sends extra RBAC to `pre-install/`. |
 | `homepage-images` ConfigMap | The artwork is **binary** (`.jpg`/`.png`). Carrying it in `values.yaml` would mean base64 blobs via `.Files.Get`, with the assets living in the chart repo. |
 
 ### Two consequences worth knowing

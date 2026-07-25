@@ -1,0 +1,33 @@
+{{- /*
+apprise escape-hatch template: the `mailrise` IngressRouteTCP — Traefik's TCP
+router on the `mailsecure` entryPoint, so appliances can speak SMTP to the mailrise
+sidecar from outside the cluster. IngressRouteTCP is deliberately NOT modelled in
+`common`: mailrise is its only homelab consumer (N=1) and apprise works without it,
+so a generic contract would be dead weight in every other chart.
+*/ -}}
+{{- with .Values.ingressRouteTCP }}
+{{- if .enabled }}
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: {{ .name }}
+  namespace: {{ include "common.namespace" $ }}
+  labels:
+{{ include "common.labels" $ | indent 4 }}
+spec:
+  ingressClassName: {{ .ingressClassName | default "traefik-external" }}
+  entryPoints:
+{{ toYaml .entryPoints | indent 4 }}
+  routes:
+    - match: {{ .match | quote }}
+      priority: {{ .priority }}
+      services:
+        - name: {{ .service.name }}
+          namespace: {{ include "common.namespace" $ }}
+          port: {{ .service.port }}
+          nativeLB: {{ .service.nativeLB | default false }}
+  tls:
+    secretName: {{ .tlsSecretName }}
+{{- end }}
+{{- end }}

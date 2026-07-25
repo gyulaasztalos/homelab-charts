@@ -6,8 +6,9 @@ Telegram / email / Discord / Pushover by tag. Ships a `mailrise` sidecar so
 appliances that can only send **email** reach the same fan-out. Rendered through
 the [`common`](../common) library chart.
 
-Requires **`common` >= 0.4.0** for `extraContainers`, `ingressRoute` `pathPrefix`,
-and the corrected `middlewares: []` semantics.
+Requires **`common` >= 0.6.0** (uses `extraContainers`, `ingressRoute` `pathPrefix`,
+and the corrected `middlewares: []` semantics). The `mailrise` `IngressRouteTCP` is
+a per-chart escape-hatch template, not a `common` feature.
 
 ## Controller
 
@@ -22,7 +23,7 @@ Secret and a ConfigMap. No owned PVC, no node-local hardware.
 | `mailrise` | SMTP server on :8025. Accepts a mail, looks the sender up in `mailrise.conf`, and re-posts it into apprise with the matching tag. |
 
 The sidecar is reached from outside the cluster through an **`IngressRouteTCP`**
-that is *not* in this chart — see below.
+(`mailrise`), rendered by a per-chart escape-hatch template — see "Scope boundary".
 
 Note the asymmetric security contexts, both preserved from the original: the
 LinuxServer.io main image drops privileges itself via `PUID`/`PGID` env vars, so
@@ -73,12 +74,14 @@ catch-all.
 
 ## Scope boundary
 
-`apps/apprise/post-install/` (a kustomize dir in the ArgoCD repo, synced as a
-separate Application source) owns:
+The `mailrise` `IngressRouteTCP` is rendered by the chart as a **per-chart
+escape-hatch template** (`templates/ingressroutetcp.yaml`, values `ingressRouteTCP:`).
+`IngressRouteTCP` is deliberately **not** modelled in `common` — mailrise is its only
+homelab consumer (N=1) and apprise works without it — so it lives in the chart but
+not the library. `apps/apprise/post-install/` now keeps only:
 
 | Object | Why it's out of the chart |
 |---|---|
-| `IngressRouteTCP` (`mailrise`) | Traefik TCP router on the `mailsecure` entryPoint. `IngressRouteTCP` is deliberately **not** modelled in `common`: mailrise is its only consumer in the homelab, apprise functions without it, and a template for one caller would be dead weight in every other chart. |
 | `PrometheusRule` (`apprise-rules`) | Auxiliary observability asset — the standing scope-boundary rule. |
 
 ## Generic chart vs. deployment values
@@ -129,6 +132,7 @@ spec**, and the **entire mailrise sidecar**. Remaining deltas:
 | `extraContainers` | `mailrise` sidecar | SMTP :8025 → apprise. |
 | `services` | `apprise` ClusterIP :8000, :8025 | Service list. |
 | `ingressRoute` | 3 routes (see above) | Two unauthenticated API prefixes + guarded UI. |
+| `ingressRouteTCP` | `mailrise` (HostSNI(`*`) → :8025) | Per-chart escape-hatch template: SMTP TCP router on the `mailsecure` entryPoint. |
 | `serviceMonitor.enabled` | `true` | Scrapes `/metrics` on the http port. |
 | `persistentVolumeClaims` / `persistentVolumes` | `[]` | None. |
 
