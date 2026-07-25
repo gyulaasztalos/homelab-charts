@@ -124,7 +124,7 @@ helm lint charts/<app>
 helm template charts/<app> | kubeconform -strict -summary -ignore-missing-schemas \
   -schema-location default \
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
-  -skip IngressRoute
+  -skip IngressRoute,IngressRouteTCP
 bash hack/test-toggles.sh
 helm template charts/<app> > /tmp/r.yaml && kube-linter lint /tmp/r.yaml && pluto detect-files -d /tmp
 # If the app has a post-install source, LINT IT TOO — the ArgoCD CI loops
@@ -133,8 +133,9 @@ helm template charts/<app> > /tmp/r.yaml && kube-linter lint /tmp/r.yaml && plut
 kube-linter lint ../ArgoCD/apps/<app>/post-install
 ```
 
-`-skip IngressRoute` is a documented exception: the public CRD catalog schema is
-stale and rejects the valid `spec.ingressClassName`.
+`-skip IngressRoute,IngressRouteTCP` is a documented exception: the public CRD
+catalog schemas for both Traefik kinds are stale and reject the valid
+`spec.ingressClassName` (apprise renders an `IngressRouteTCP` from the chart).
 
 ### Regression gate — the one that matters for `charts/common`
 

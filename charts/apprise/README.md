@@ -141,7 +141,7 @@ spec**, and the **entire mailrise sidecar**. Remaining deltas:
 ```bash
 helm dependency build charts/apprise
 helm lint charts/apprise
-helm template apprise charts/apprise | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
+helm template apprise charts/apprise | kubeconform -strict -ignore-missing-schemas -skip IngressRoute,IngressRouteTCP
 bash hack/test-toggles.sh     # asserts the middlewares/pathPrefix semantics
 bash hack/diff-charts.sh      # regression vs the last proven render
 ```

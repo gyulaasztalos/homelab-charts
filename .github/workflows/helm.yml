@@ -28,15 +28,15 @@ jobs:
           set -euo pipefail
           # kubeconform args as an array (avoids word-splitting fragility).
           # - default schemas + the datree CRD catalog for Traefik / ServiceMonitor / ExternalSecret
-          # - IngressRoute is skipped: the public CRD catalog schema for traefik.io
-          #   IngressRoute is stale and rejects the VALID spec.ingressClassName field
-          #   (present in current Traefik CRDs and in the existing cluster manifests).
-          #   Documented CI exception.
+          # - IngressRoute AND IngressRouteTCP are skipped: the public CRD catalog
+          #   schemas for both traefik.io kinds are stale and reject the VALID
+          #   spec.ingressClassName field (present in current Traefik CRDs and in the
+          #   existing cluster manifests). Documented CI exception.
           KC_ARGS=(
             -strict -summary -ignore-missing-schemas
             -schema-location default
             -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json'
-            -skip IngressRoute
+            -skip IngressRoute,IngressRouteTCP
           )
           for dir in charts/*/; do
             name="$(basename "$dir")"
