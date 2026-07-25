@@ -7,11 +7,15 @@ ingress, monitoring) for readable diffs.
 */}}
 {{- define "common.all" -}}
 {{ include "common.externalsecrets" . }}
+{{ include "common.database" . }}
 {{ include "common.configmaps" . }}
 {{ include "common.pvcs" . }}
 {{ include "common.serviceaccount" . }}
 {{ include "common.controller" . }}
+{{ include "common.jobs" . }}
+{{ include "common.cronjobs" . }}
 {{ include "common.service" . }}
+{{ include "common.middlewares" . }}
 {{ include "common.ingressroute" . }}
 {{ include "common.servicemonitor" . }}
 {{- end -}}

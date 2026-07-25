@@ -7,8 +7,9 @@ version: 0.1.0
 # NOTE: no appVersion here on purpose. The deployed app version is the container
 # image tag in values.yaml (image.tag), which is the single source of truth and is
 # kept current by Renovate. Duplicating it as appVersion would only risk drift.
-# Floor is >= 0.4.0 (uses ingressRoute pathPrefix + middlewares: [] from 0.4.0).
+# Floor tracks common's current version (>= 0.6.0); the whole repo moves
+# together on a bump. See PLAN.md "common versioning".
 dependencies:
   - name: common
-    version: ">= 0.5.0"
+    version: ">= 0.6.0"
     repository: "file://../common"

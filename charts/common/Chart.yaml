@@ -6,6 +6,19 @@ description: >-
   ServiceMonitor, PVC, ExternalSecret, ConfigMap) encoding homelab conventions.
 icon: https://helm.sh/img/helm.svg
 type: library
+# 0.6.0 — common gains `jobs:` (batch/v1 Job), `cronJobs:` (batch/v1 CronJob) and
+#         `database:` (CNPG postgresql.cnpg.io/v1 Database) contracts. jobs/cronJobs
+#         share one pod-body helper (common.jobPodSpec); a job's image defaults to
+#         the app image, so migrate/maintenance Jobs track the deployment tag
+#         automatically. Optional argocd hook passthrough. `database` renders the
+#         app's mandatory CNPG database (values-driven `namespace`, default
+#         databases) — a cross-namespace object that nonetheless belongs with the
+#         app. `middlewares` renders the app's Traefik Middleware objects (verbatim
+#         spec, values-driven `namespace`, default traefik) — the other half of the
+#         edge the IngressRoute already models, so route + middleware sync as a unit.
+#         Added to pull mandatory app resources out of post-install: after 0.6.0 a
+#         post-install/ dir holds only dashboards and PrometheusRules. Purely
+#         additive: an app that sets none renders exactly as before.
 # 0.5.0 — common.service gains optional `loadBalancerIP` + `externalTrafficPolicy`
 #         (standard Service fields; needed for transmission's MetalLB peer LBs).
 # 0.4.0 — ingressRoute.routes[] gains `pathPrefix` (match becomes
@@ -17,6 +30,6 @@ type: library
 #         container, passed through verbatim). Added for unbound's exporter.
 # 0.2.0 — serviceAccount gains an optional `secrets:` back-reference and an
 #         optional long-lived `tokenSecret` (kubernetes.io/service-account-token).
-version: 0.5.0
+version: 0.6.0
 maintainers:
   - name: gyulaasztalos

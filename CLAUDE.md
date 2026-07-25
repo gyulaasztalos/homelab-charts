@@ -80,10 +80,30 @@ manifest is just a reference; the value rotates in 1Password without changing it
 
 ## Scope boundary: what is NOT in the chart
 
-The chart owns the **core workload only**. These move to
-`../ArgoCD/apps/<app>/post-install/` (a kustomize dir, synced as an extra
-Application source): Grafana dashboard ConfigMaps, PrometheusRules, one-off Jobs,
-EndpointSlices, extra RBAC. Keeps dashboard JSON out of values.yaml.
+The chart owns **every mandatory, app-namespace resource** — not just the core
+workload. The discriminator is *namespace + mandatory-ness*, not resource kind:
+
+- **Same namespace as the app → in the chart.** Batch Jobs/CronJobs (via `common`
+  `jobs:`/`cronJobs:`, since 0.6.0 — a job's image defaults to the app image, so
+  migrate/maintenance jobs stop hardcoding a manually-synced tag), ExternalSecrets
+  (`externalSecrets:`), and bespoke one-offs a generic list can't model (a second
+  Deployment like cloudflared, NetworkPolicies) as **per-chart templates** — the
+  documented escape hatch, `templates/*.yaml` alongside `main.yaml`, free to call
+  `common`'s helpers.
+- **Cross-namespace but MANDATORY → still in the chart** (per-chart template with
+  an explicit `namespace`). The app's CNPG `Database` (in `databases`) is a hard
+  dependency — the app cannot run without it — so it belongs with the app.
+- **`post-install/` holds only three things:** Grafana dashboard ConfigMaps,
+  PrometheusRules, and *non-mandatory* cross-namespace objects (the Traefik
+  `Middleware` in `traefik` — ingress-layer sugar the app runs without). Keeps
+  dashboard JSON out of values.yaml.
+
+A subtlety `common` bakes in (guarded by `hack/test-toggles.sh`): **a Job/CronJob
+pod carries `app.kubernetes.io/name` but NOT `app`.** The app Service selects
+`app: <name>`, so a job pod carrying `app` becomes a Service endpoint and
+Prometheus scrapes it on a metrics port it never serves → a spurious `TargetDown`.
+The `app.kubernetes.io/name` label still lets a name-based NetworkPolicy grant the
+job its egress.
 
 Domain-specific config (real hostnames, secret refs) lives in
 `../ArgoCD/apps/<app>/values.yaml` — and that file carries the *complete* value
