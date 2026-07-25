@@ -4,8 +4,11 @@ InfluxDB 2.x OSS (`influxdb`, official image) — long-term store for Home Assis
 sensor data (fridge/freezer temperatures / HACCP), browsed in Grafana. Rendered
 through the [`common`](../common) library chart.
 
-Requires **`common` >= 0.4.0** for the IngressRoute `pathPrefix` + `middlewares: []`
-pattern.
+Requires **`common` >= 0.6.0**.
+
+influxdb *is* its own datastore, so it has no CNPG dependency; External Secrets
+Operator + 1Password Connect back the two ExternalSecrets (the app's admin token
+and the Grafana datasource).
 
 ## Controller — StatefulSet
 
@@ -43,15 +46,16 @@ exactly what the alert rules query. rPi-critical.
 
 ## Scope boundary
 
-`apps/influxdb/post-install/` (a kustomize dir, separate ArgoCD source) owns
-everything that is not the core workload:
+The chart renders the core workload **and** the Grafana datasource ExternalSecret
+(moved in at `common` 0.6.0 — it's an ExternalSecret the library models, alongside
+the app's own `influxdb-init`). `apps/influxdb/post-install/` (a kustomize dir,
+separate ArgoCD source) keeps the rest — all observability glue:
 
 | Object | Notes |
 |---|---|
 | 2 Grafana dashboards | Generated from JSON (fridge-HACCP + OSS metrics). |
-| `grafana-datasource` ExternalSecret | Wires Grafana → influxdb (reuses the admin token). Observability glue, so it lives here, not in the chart with the app's own `influxdb-init` secret. |
 | `influxdb-alerts` PrometheusRule | Availability / error-rate / write-heartbeat / resource alarms. |
-| HACCP backup-alert Job + template | A **PostSync** Job runs `influx apply` to install an InfluxDB-native Flux **Task** (a second, DB-side HACCP alarm independent of the Home Assistant automation). The Job and its template ConfigMap are in the same kustomization, so the hashed-name reference rewrites correctly. |
+| HACCP backup-alert Job + template | A **PostSync** Job runs `influx apply` to install an InfluxDB-native Flux **Task** (a second, DB-side HACCP alarm independent of the Home Assistant automation). **Deliberately kept in post-install:** the Job and its template ConfigMap are in the same kustomization (the hashed-name reference rewrites correctly), and moving the template into the chart's `configMaps` would drag the StatefulSet into a `checksum/config` roll on every alert-task edit. |
 
 > `ServerSideApply=true` and `sync-wave: "-1"` are preserved on the Application —
 > the dashboards are large, and influxdb should come up before its consumers.
@@ -102,7 +106,7 @@ effect on the next sync.
 | `podAntiAffinity` | `true` | At most one replica per node. |
 | `ports` | `http` 8086 | Container port. |
 | `env` | INIT_MODE/ORG/BUCKET/RETENTION + admin creds | Auto-setup; creds from `influxdb-init`. |
-| `externalSecrets` | `influxdb-init` | 1Password → admin username/password/token. |
+| `externalSecrets` | `influxdb-init` + `influxdb-grafana-datasource` | 1Password → admin creds; and the labeled Grafana datasource Secret. |
 | `readinessProbe` / `livenessProbe` | httpGet `/health` :8086 | Health checks. |
 | `services` | `influxdb` ClusterIP :8086 | Service list. |
 | `ingressRoute` | 2 routes (see above) | `/api` unauthenticated + guarded UI. |

@@ -75,6 +75,12 @@ render() {
   local dir="$1" name="$2" out="$3" values="${4:-}"
   local vargs=()
   [ -n "$values" ] && vargs=(-f "$values")
+  # Wipe vendored deps + lock so each side ALWAYS re-vendors `common` fresh from
+  # file://../common. Without this, `helm dependency build` reuses a stale
+  # charts/common-*.tgz left on disk, so the working-tree side can silently render
+  # against an OLD common while the baseline re-vendors the new one — producing a
+  # spurious "CHANGED" for charts you never touched (seen after a common bump).
+  rm -rf "$dir/charts" "$dir/Chart.lock"
   helm dependency build "$dir" >/dev/null 2>&1 || true
   helm template "$name" "$dir" ${vargs[@]+"${vargs[@]}"} > "$out" 2>"$out.err" || {
     echo "RENDER FAILED"; sed 's/^/      /' "$out.err" >&2; return 1; }
