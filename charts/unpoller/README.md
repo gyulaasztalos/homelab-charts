@@ -98,5 +98,5 @@ which is content-derived proof). Deltas:
 helm dependency build charts/unpoller
 helm lint charts/unpoller
 helm template unpoller charts/unpoller | kubeconform -strict -ignore-missing-schemas
-bash hack/diff-charts.sh      # regression vs the last proven render
+bash tests/diff-charts.sh      # regression vs the last proven render
 ```

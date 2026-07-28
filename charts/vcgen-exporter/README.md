@@ -81,5 +81,5 @@ helm lint charts/vcgen-exporter
 helm template vcgen-exporter charts/vcgen-exporter | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
 # migration equivalence against install/ (renders with the tailored GitOps values
 # auto-picked up from ../ArgoCD/apps/vcgen-exporter/values.yaml):
-bash hack/diff-migration.sh vcgen-exporter
+bash tests/diff-migration.sh vcgen-exporter
 ```

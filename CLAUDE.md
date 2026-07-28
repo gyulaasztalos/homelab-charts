@@ -60,7 +60,7 @@ Every default-on boolean must be written:
 {{- if ne (.Values.podAntiAffinity | toString) "false" }}
 ```
 
-`hack/test-toggles.sh` is the regression guard (runs in CI) and asserts both
+`tests/test-toggles.sh` is the regression guard (runs in CI) and asserts both
 directions — off when forced false, *and* on by default, so the test can't go
 vacuous.
 
@@ -98,7 +98,7 @@ workload. The discriminator is *namespace + mandatory-ness*, not resource kind:
   `Middleware` in `traefik` — ingress-layer sugar the app runs without). Keeps
   dashboard JSON out of values.yaml.
 
-A subtlety `common` bakes in (guarded by `hack/test-toggles.sh`): **a Job/CronJob
+A subtlety `common` bakes in (guarded by `tests/test-toggles.sh`): **a Job/CronJob
 pod carries `app.kubernetes.io/name` but NOT `app`.** The app Service selects
 `app: <name>`, so a job pod carrying `app` becomes a Service endpoint and
 Prometheus scrapes it on a metrics port it never serves → a spurious `TargetDown`.
@@ -125,7 +125,7 @@ helm template charts/<app> | kubeconform -strict -summary -ignore-missing-schema
   -schema-location default \
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
   -skip IngressRoute,IngressRouteTCP
-bash hack/test-toggles.sh
+bash tests/test-toggles.sh
 helm template charts/<app> > /tmp/r.yaml && kube-linter lint /tmp/r.yaml && pluto detect-files -d /tmp
 # If the app has a post-install source, LINT IT TOO — the ArgoCD CI loops
 # apps/<app>/ per directory, so raw post-install manifests (Jobs, CronJobs,
@@ -144,8 +144,8 @@ render is the baseline from then on, and the old `install/` manifests are dead.
 So every later change is checked as *previous proven render → new render*:
 
 ```bash
-hack/diff-charts.sh              # vs HEAD
-hack/diff-charts.sh <ref> [chart...]
+tests/diff-charts.sh              # vs HEAD
+tests/diff-charts.sh <ref> [chart...]
 ```
 
 Renders every chart at `<ref>` and from the working tree, diffing both the
@@ -161,7 +161,7 @@ Only while both representations exist — before the app is cut over. Superseded
 `diff-charts.sh` the moment the migration is verified in prod.
 
 ```bash
-hack/diff-migration.sh <app> [path-to-ArgoCD-repo]
+tests/diff-migration.sh <app> [path-to-ArgoCD-repo]
 ```
 
 Renders old kustomize vs. new chart, normalizes and diffs per resource. Only
@@ -174,7 +174,7 @@ after cutover, so a committed snapshot would rot into a false gate.
 
 When troubleshooting surfaces a new failure mode, add a regression check to CI (a
 values fixture + render assertion that would have caught it) — not just a local
-fix. `hack/test-toggles.sh` exists because of exactly that.
+fix. `tests/test-toggles.sh` exists because of exactly that.
 
 ## ArgoCD wiring (per app)
 
@@ -226,7 +226,7 @@ out the whole repo for the chart source.
   understands), and every wrapper's `common` floor moves to the new version. The
   failure mode is silent: an undeclared knob in values.yaml against an older
   `common` is ignored, not rejected. Also check Renovate coverage for
-  verbatim-passthrough lists, and prove additivity with `hack/diff-charts.sh`.
+  verbatim-passthrough lists, and prove additivity with `tests/diff-charts.sh`.
   Full checklist in `PLAN.md` → "`common` versioning".
 - One app cut over and confirmed healthy in-cluster before starting the next.
 - Chart README is updated as the **final** step of each migration.

@@ -100,5 +100,5 @@ resources, mounts) are all **identical**. Intentional deltas:
 helm dependency build charts/flexget
 helm lint charts/flexget
 helm template flexget charts/flexget | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
-bash hack/diff-charts.sh
+bash tests/diff-charts.sh
 ```

@@ -131,5 +131,5 @@ helm dependency build charts/unbound
 helm lint charts/unbound
 helm template unbound charts/unbound | kubeconform -strict -ignore-missing-schemas
 # regression vs the last proven render (the gate that matters after cutover):
-bash hack/diff-charts.sh
+bash tests/diff-charts.sh
 ```

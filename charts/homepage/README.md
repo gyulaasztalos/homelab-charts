@@ -143,7 +143,7 @@ helm lint charts/homepage
 helm template homepage charts/homepage | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
 ```
 
-> `hack/diff-migration.sh homepage` does **not** work for this app: it compares
+> `tests/diff-migration.sh homepage` does **not** work for this app: it compares
 > `install/` against the chart alone, and homepage's objects are split across the
 > chart *and* `pre-install/`. The migration was verified by rendering both sources
 > together against the pre-migration tree from git — see the migration notes above.

@@ -34,7 +34,7 @@ trap. Helm's `default` treats an EMPTY LIST as empty, so
 `middlewares: []` just as it did for an absent key. The documented "set [] to
 drop auth" therefore silently did the opposite, wrapping a machine-facing API in
 forward-auth. `hasKey` is what actually distinguishes "absent" from "explicitly
-empty"; `hack/test-toggles.sh` asserts both directions.
+empty"; `tests/test-toggles.sh` asserts both directions.
 */}}
 {{- define "common.ingressroute" -}}
 {{- $ir := .Values.ingressRoute | default dict }}

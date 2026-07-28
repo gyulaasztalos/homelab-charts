@@ -79,5 +79,5 @@ helm lint charts/ddns-updater
 helm template ddns-updater charts/ddns-updater | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
 # migration equivalence against install/ — renders with the TAILORED GitOps values
 # (auto-picked up from ../ArgoCD/apps/ddns-updater/values.yaml):
-bash hack/diff-migration.sh ddns-updater
+bash tests/diff-migration.sh ddns-updater
 ```

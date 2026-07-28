@@ -103,5 +103,5 @@ byte-identical. Deltas:
 helm dependency build charts/nebula-sync
 helm lint charts/nebula-sync
 helm template nebula-sync charts/nebula-sync | kubeconform -strict -ignore-missing-schemas
-bash hack/diff-charts.sh      # regression vs the last proven render
+bash tests/diff-charts.sh      # regression vs the last proven render
 ```

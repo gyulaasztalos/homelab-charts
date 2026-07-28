@@ -66,7 +66,7 @@ This app is the reason `common` 0.4.0 exists:
   list as empty, so `[] | default (authentik, default-headers)` returned the
   defaults — the documented "set `[]` to drop auth" silently did the opposite.
   `hasKey` distinguishes an absent key from an explicitly empty one.
-  `hack/test-toggles.sh` asserts both directions, and was verified to fail
+  `tests/test-toggles.sh` asserts both directions, and was verified to fail
   against the old template.
 
 Higher priority wins in Traefik, so the two prefix routes must outrank the
@@ -142,6 +142,6 @@ spec**, and the **entire mailrise sidecar**. Remaining deltas:
 helm dependency build charts/apprise
 helm lint charts/apprise
 helm template apprise charts/apprise | kubeconform -strict -ignore-missing-schemas -skip IngressRoute,IngressRouteTCP
-bash hack/test-toggles.sh     # asserts the middlewares/pathPrefix semantics
-bash hack/diff-charts.sh      # regression vs the last proven render
+bash tests/test-toggles.sh     # asserts the middlewares/pathPrefix semantics
+bash tests/diff-charts.sh      # regression vs the last proven render
 ```

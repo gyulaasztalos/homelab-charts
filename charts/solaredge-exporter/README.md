@@ -92,5 +92,5 @@ ServiceMonitor spec, and the PrometheusRule spec. Deltas:
 helm dependency build charts/solaredge-exporter
 helm lint charts/solaredge-exporter
 helm template solaredge-exporter charts/solaredge-exporter | kubeconform -strict -ignore-missing-schemas
-bash hack/diff-charts.sh
+bash tests/diff-charts.sh
 ```

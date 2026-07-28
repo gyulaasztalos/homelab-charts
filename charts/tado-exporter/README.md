@@ -97,5 +97,5 @@ and the PrometheusRule spec. Deltas:
 helm dependency build charts/tado-exporter
 helm lint charts/tado-exporter
 helm template tado-exporter charts/tado-exporter | kubeconform -strict -ignore-missing-schemas
-bash hack/diff-charts.sh
+bash tests/diff-charts.sh
 ```

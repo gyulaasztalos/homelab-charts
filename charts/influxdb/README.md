@@ -120,5 +120,5 @@ effect on the next sync.
 helm dependency build charts/influxdb
 helm lint charts/influxdb
 helm template influxdb charts/influxdb | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
-bash hack/diff-charts.sh
+bash tests/diff-charts.sh
 ```

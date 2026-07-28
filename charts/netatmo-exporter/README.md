@@ -77,5 +77,5 @@ helm lint charts/netatmo-exporter
 helm template netatmo-exporter charts/netatmo-exporter | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
 # migration equivalence against install/ — renders with the TAILORED GitOps values
 # (auto-picked up from ../ArgoCD/apps/netatmo-exporter/values.yaml):
-bash hack/diff-migration.sh netatmo-exporter
+bash tests/diff-migration.sh netatmo-exporter
 ```

@@ -98,5 +98,5 @@ helm lint charts/nut-exporter
 helm template nut-exporter charts/nut-exporter | kubeconform -strict -ignore-missing-schemas -skip IngressRoute
 # migration equivalence against install/ (renders with the tailored GitOps values
 # auto-picked up from ../ArgoCD/apps/nut-exporter/values.yaml):
-bash hack/diff-migration.sh nut-exporter
+bash tests/diff-migration.sh nut-exporter
 ```

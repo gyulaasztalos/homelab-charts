@@ -49,4 +49,4 @@ jobs:
           done
 
       - name: Boolean-toggle regression test
-        run: bash hack/test-toggles.sh
+        run: bash tests/test-toggles.sh
