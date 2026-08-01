@@ -22,7 +22,7 @@ namespace: flexget
 image:
   repository: lscr.io/linuxserver/flexget
   # renovate: datasource=docker depName=lscr.io/linuxserver/flexget
-  tag: v3.16.14-ls239
+  tag: v3.19.31-ls354
   pullPolicy: IfNotPresent
 
 # -----------------------------------------------------------------------------
