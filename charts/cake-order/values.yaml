@@ -380,6 +380,14 @@ persistentVolumes:
         - ReadOnlyMany
       persistentVolumeReclaimPolicy: Retain
       storageClassName: cake-order-gallery
+      # NFS defaults to `hard`: a process touching an unreachable mount blocks in
+      # uninterruptible sleep indefinitely, which can leave a node needing a
+      # power cycle. `soft` bounds that to an I/O error. No write-truncation
+      # downside here — the volume is ReadOnlyMany.
+      mountOptions:
+        - soft
+        - timeo=600
+        - retrans=3
       nfs:
         server: nas.example.com
         path: /exports/cake-order

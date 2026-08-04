@@ -290,6 +290,14 @@ persistentVolumes:
         - ReadWriteMany
       persistentVolumeReclaimPolicy: Retain
       storageClassName: nfs-share-small
+      # NFS defaults to `hard`: a process touching an unreachable mount blocks in
+      # uninterruptible sleep indefinitely, which can leave a node needing a
+      # power cycle. `soft` bounds that to an I/O error — 60s per attempt
+      # (timeo is deciseconds), ~4 attempts with backoff.
+      mountOptions:
+        - soft
+        - timeo=600
+        - retrans=3
       nfs:
         server: nas.example.com
         path: /exports
