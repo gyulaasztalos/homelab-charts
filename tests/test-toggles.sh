@@ -193,6 +193,79 @@ else
     bad "job image (${JOB_IMG}) does not match app image (${APP_IMG})"
 fi
 
+# 7) RWO PVC on a Deployment must FAIL the render, not hang at rollout time.
+#
+# CLAUDE.md's bright-line rule already sends an app that owns an RWO PVC to a
+# statefulset, and records why: "RWO PVC on a Deployment + RollingUpdate causes
+# Longhorn multi-attach flaps". That rule was documentation only — nothing
+# enforced it. The failure it prevents is silent: with maxSurge > 0 the
+# replacement pod is created BEFORE the old one releases the volume, so it can
+# never attach, and the rollout HANGS indefinitely rather than failing.
+#
+# These pin the guard in common.assertNoRwoSurge. Verified NON-VACUOUS against
+# common 0.6.0 (the template before the guard), where case (a) rendered happily.
+echo "== RWO-on-Deployment guard =="
+
+# (a) the bug itself: Deployment + RWO PVC + default strategy (maxSurge=1).
+if helm template "${CHART}" \
+    --set controller.type=deployment \
+    --set 'persistentVolumeClaims[0].name=guard-test' \
+    --set 'persistentVolumeClaims[0].size=1Gi' >/dev/null 2>&1
+then
+    bad "Deployment + RWO PVC + maxSurge=1 rendered — the rollout-deadlock guard did not fire"
+else
+    pass "Deployment + RWO PVC + maxSurge=1 is rejected at render time"
+fi
+
+# (b) escape hatch: Recreate is the correct strategy for single-writer state.
+if helm template "${CHART}" \
+    --set controller.type=deployment \
+    --set 'persistentVolumeClaims[0].name=guard-test' \
+    --set 'persistentVolumeClaims[0].size=1Gi' \
+    --set controller.strategy.type=Recreate >/dev/null 2>&1
+then
+    pass "Deployment + RWO PVC + Recreate still renders"
+else
+    bad "Recreate was rejected — the guard is too broad"
+fi
+
+# (c) escape hatch: an explicit maxSurge=0 also avoids the double attach.
+if helm template "${CHART}" \
+    --set controller.type=deployment \
+    --set 'persistentVolumeClaims[0].name=guard-test' \
+    --set 'persistentVolumeClaims[0].size=1Gi' \
+    --set controller.strategy.type=RollingUpdate \
+    --set controller.strategy.rollingUpdate.maxSurge=0 \
+    --set controller.strategy.rollingUpdate.maxUnavailable=1 >/dev/null 2>&1
+then
+    pass "Deployment + RWO PVC + maxSurge=0 still renders"
+else
+    bad "maxSurge=0 was rejected — the guard is too broad"
+fi
+
+# (d) RWX carries no single-attach constraint, so it must be untouched.
+if helm template "${CHART}" \
+    --set controller.type=deployment \
+    --set 'persistentVolumeClaims[0].name=guard-test' \
+    --set 'persistentVolumeClaims[0].size=1Gi' \
+    --set 'persistentVolumeClaims[0].accessModes[0]=ReadWriteMany' >/dev/null 2>&1
+then
+    pass "Deployment + ReadWriteMany PVC is not affected by the guard"
+else
+    bad "ReadWriteMany was rejected — the guard must only target ReadWriteOnce"
+fi
+
+# (e) the documented destination for RWO state must of course still work.
+if helm template "${CHART}" \
+    --set controller.type=statefulset \
+    --set 'persistentVolumeClaims[0].name=guard-test' \
+    --set 'persistentVolumeClaims[0].size=1Gi' >/dev/null 2>&1
+then
+    pass "StatefulSet + RWO PVC still renders"
+else
+    bad "StatefulSet + RWO PVC was rejected — the guard must be deployment-only"
+fi
+
 if [ "${FAILED}" -ne 0 ]
 then
     echo "TOGGLE REGRESSION TEST FAILED" >&2

@@ -76,6 +76,23 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 30
             failureThreshold: 5
+          # cloudflared's /ready reports whether the tunnel has live edge
+          # connections, not merely whether the process is up -- so readiness
+          # is the only signal that distinguishes "running" from "actually
+          # carrying traffic". Without it a tunnel that has lost all its edge
+          # connections stays a valid Service endpoint and silently blackholes.
+          #
+          # Tighter than liveness on purpose: readiness should withdraw the
+          # endpoint quickly when the tunnel drops, while liveness stays slow
+          # so a transient edge reconnect does not trigger a pod restart.
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 2000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
       restartPolicy: Always
       securityContext:
         seccompProfile:

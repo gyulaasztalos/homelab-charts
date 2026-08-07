@@ -1,11 +1,16 @@
 apiVersion: v2
 name: common
 description: >-
-  HomeLab library chart. Named templates for the standard resource set
-  (deployment/statefulset/daemonset, service, Traefik IngressRoute, Prometheus
-  ServiceMonitor, PVC, ExternalSecret, ConfigMap) encoding homelab conventions.
+  HomeLab library chart. Named templates for the standard resource set (deployment/statefulset/daemonset, service, Traefik IngressRoute, Prometheus ServiceMonitor, PVC, ExternalSecret, ConfigMap) encoding homelab conventions.
 icon: https://helm.sh/img/helm.svg
 type: library
+# 0.6.1 — render-time guard `common.assertNoRwoSurge`: a Deployment mounting a
+#         ReadWriteOnce PVC under RollingUpdate with maxSurge>0 now FAILS the render
+#         (that combination hangs the rollout forever — the replacement pod can't
+#         attach the volume the outgoing pod still holds). The failure names the
+#         escapes: Recreate, maxSurge:0, or controller.type statefulset. No new
+#         values key (patch); pinned by tests/test-toggles.sh. Additive: no current
+#         chart trips it (every RWO-PVC app is already a StatefulSet).
 # 0.6.0 — common gains `jobs:` (batch/v1 Job), `cronJobs:` (batch/v1 CronJob) and
 #         `database:` (CNPG postgresql.cnpg.io/v1 Database) contracts. jobs/cronJobs
 #         share one pod-body helper (common.jobPodSpec); a job's image defaults to
@@ -30,6 +35,6 @@ type: library
 #         container, passed through verbatim). Added for unbound's exporter.
 # 0.2.0 — serviceAccount gains an optional `secrets:` back-reference and an
 #         optional long-lived `tokenSecret` (kubernetes.io/service-account-token).
-version: 0.6.0
+version: 0.6.1
 maintainers:
   - name: gyulaasztalos

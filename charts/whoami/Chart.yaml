@@ -1,9 +1,7 @@
 apiVersion: v2
 name: whoami
 description: >-
-  whoami — a tiny HTTP echo service (traefik/whoami) used to smoke-test ingress,
-  TLS and Authentik forward-auth. Pure core workload (Deployment + Service +
-  IngressRoute in the `default` namespace); no secrets, config or storage.
+  whoami — a tiny HTTP echo service (traefik/whoami) used to smoke-test ingress, TLS and Authentik forward-auth. Pure core workload (Deployment + Service + IngressRoute in the `default` namespace); no secrets, config or storage.
 type: application
 version: 0.1.0
 # NOTE: no appVersion here on purpose. The deployed app version is the container
