@@ -69,7 +69,7 @@ jobs:
           name: rendered-manifests
           path: rendered/
       - name: Install Pluto
-        uses: FairwindsOps/pluto/github-action@366e3d0ebb136f41eadc96ff7a1281d396e1d58b # master
+        uses: FairwindsOps/pluto/github-action@54e8bc77632e0be5d6b3ad6cd3f32c7460eea9c9 # master
       - name: Scan rendered manifests for deprecated APIs
         run: |
           printf "\nScanning rendered manifests for deprecated APIs...\n"
