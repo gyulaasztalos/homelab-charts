@@ -32,7 +32,7 @@ namespace: homepage
 image:
   repository: ghcr.io/gethomepage/homepage
   # renovate: datasource=docker depName=ghcr.io/gethomepage/homepage
-  tag: v1.13.2
+  tag: v2.0.0
   pullPolicy: IfNotPresent
 
 # -----------------------------------------------------------------------------
@@ -108,7 +108,8 @@ ports:
 # ConfigMap lives in pre-install and does NOT roll the pod — see README.)
 # -----------------------------------------------------------------------------
 envFromConfigMap: homepage-env
-envFromSecrets: []
+envFromSecrets:
+  - homepage-auth
 env: []
 
 configMaps:
@@ -120,6 +121,11 @@ configMaps:
       # homepage refuses requests whose Host header is not listed here.
       HOMEPAGE_ALLOWED_HOSTS: "homepage.example.com,localhost:3000"
       HOMEPAGE_PROXY_DISABLE_IPV6: "true"
+      HOMEPAGE_AUTH_ENABLED: "true"
+      HOMEPAGE_EXTERNAL_URL: "https://homepage.example.com"
+      HOMEPAGE_OIDC_ISSUER: "https://auth.example.com/application/o/homepage/"
+      HOMEPAGE_OIDC_CLIENT_ID: "homepage"
+      HOMEPAGE_OIDC_NAME: "Authentik"
 
   - name: homepage-config
     files:
@@ -228,6 +234,25 @@ externalSecrets:
         remoteRef:
           key: grafana-secrets
           property: admin-password
+
+  - name: homepage-auth
+    refreshInterval: 1h
+    target:
+      template:
+        engineVersion: v2
+        type: Opaque
+        data:
+          HOMEPAGE_OIDC_CLIENT_SECRET: "{{ .oidc_client_secret }}"
+          HOMEPAGE_AUTH_SECRET: "{{ .auth_secret }}"
+    data:
+      - secretKey: oidc_client_secret
+        remoteRef:
+          key: homepage
+          property: oidc.clientSecret
+      - secretKey: auth_secret
+        remoteRef:
+          key: homepage
+          property: auth-secret
 
 # -----------------------------------------------------------------------------
 # Resources.
@@ -372,8 +397,6 @@ ingressRoute:
       port: 3000
       priority: 10
       middlewares:
-        - name: authentik
-          namespace: traefik
         - name: default-headers
           namespace: traefik
 
