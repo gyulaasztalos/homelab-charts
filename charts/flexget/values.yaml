@@ -57,7 +57,7 @@ volumeClaimTemplates:
       storageClassName: longhorn
       resources:
         requests:
-          storage: 350Mi
+          storage: 500Mi
 
 # -----------------------------------------------------------------------------
 # ServiceAccount. flexget never calls the Kubernetes API, so it runs under the
