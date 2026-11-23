@@ -5,8 +5,7 @@
     "helpers:pinGitHubActionDigests"
   ],
   "automergeSchedule": [
-    "after 5am every weekday",
-    "before 4pm every weekday",
+    "after 5am and before 4pm every weekday",
     "every weekend"
   ],
   "timezone": "Europe/Budapest",
