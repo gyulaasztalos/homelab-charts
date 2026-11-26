@@ -9,7 +9,7 @@
     "every weekend"
   ],
   "timezone": "Europe/Budapest",
-  "platformAutomerge": true,
+  "platformAutomerge": false,
   "packageRules": [
     {
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
@@ -19,6 +19,11 @@
       "description": "Major updates open a PR (email notification), never auto-merged",
       "matchUpdateTypes": ["major"],
       "automerge": false
+    },
+    {
+      "description": "CI updates merge themselves, majors included",
+      "matchManagers": ["github-actions"],
+      "automerge": true
     }
   ],
   "helm-values": {
