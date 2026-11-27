@@ -1,0 +1,84 @@
+{{- /*
+transmission escape-hatch template: a default-deny NetworkPolicy that contains the
+one workload exposed to the internet through a WAN port forward (peer port 51413).
+Bespoke security rules for one app — the escape hatch, not a generic contract
+(cake-order is the only other chart with a NetworkPolicy; N=2 stays per-chart).
+
+A compromised transmission pod can reach the internet over IPv4 (peers, trackers,
+the blocklist and the Flood UI download) but nothing on the LAN or in the cluster
+except DNS and apprise. There is deliberately NO IPv6 egress rule: the pod's
+ULA address is masqueraded to the node's global ISP prefix, which is dynamic and
+cannot be excluded in an ipBlock, so an IPv6 allow would bypass the private-range
+exclusions below. With no IPv6 ipBlock, all IPv6 egress outside the selected
+in-cluster pods is denied.
+
+Kubelet exec probes and the NFS mount (done by the node, not the pod) are not
+subject to NetworkPolicy.
+*/ -}}
+{{- $app := include "common.name" . }}
+{{- $ns := include "common.namespace" . }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $app }}
+  namespace: {{ $ns }}
+  labels:
+{{ include "common.labels" . | indent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $app }}
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # BitTorrent peers from anywhere (WAN port forward -> MetalLB LB IP,
+    # externalTrafficPolicy: Local keeps the real peer address)
+    - ports:
+        - port: 51413
+          protocol: TCP
+        - port: 51413
+          protocol: UDP
+    # Homepage widget + siteMonitor (in-cluster, via the Service / LB IP)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: homepage
+      ports:
+        - port: 9091
+    # Flood web UI / RPC from the LAN client networks (via the LB IP)
+    {{- with .Values.networkPolicy.rpcClientCidrs }}
+    - from:
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        - port: 9091
+    {{- end }}
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # torrent-done notification script -> apprise
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: apprise
+      ports:
+        - port: 8000
+    # IPv4 internet only — no LAN, no cluster, no link-local
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.0.0/16
